@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication - Hall Fusion System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="fusion.html">Dashboard</a> > Authentication
+        </nav>
+
+        <header class="header">
+            <h1>🔐 Student Authentication</h1>
+            <p>Multi-modal biometric verification</p>
+        </header>
+
+        <!-- Authentication Mode Selection -->
+        <div class="mode-selection">
+            <h2>Select Authentication Mode</h2>
+            <div class="mode-grid">
+                <div class="mode-card" onclick="selectMode('face')">
+                    <div class="mode-icon">👤</div>
+                    <h3>Face Only</h3>
+                    <p>Quick authentication using facial recognition</p>
+                    <span class="mode-badge">Fast</span>
+                </div>
+
+                <div class="mode-card" onclick="selectMode('fingerprint')">
+                    <div class="mode-icon">👆</div>
+                    <h3>Fingerprint Only</h3>
+                    <p>Authenticate using fingerprint scanner</p>
+                    <span class="mode-badge">Accurate</span>
+                </div>
+
+                <div class="mode-card" onclick="selectMode('fusion')">
+                    <div class="mode-icon">🔒</div>
+                    <h3>Fusion (Both)</h3>
+                    <p>Maximum security with both biometrics</p>
+                    <span class="mode-badge">Most Secure</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Face Authentication Section -->
+        <div id="faceAuthSection" class="auth-section" style="display: none;">
+            <h2>👤 Face Authentication</h2>
+            
+            <div class="video-container">
+                <video id="faceVideo" autoplay playsinline></video>
+                <div class="face-guide-overlay"></div>
+                <canvas id="faceCanvas" style="display: none;"></canvas>
+            </div>
+
+            <div class="angle-indicator" id="faceAngleIndicator">
+                <span id="faceAngleText">Position your face in the frame</span>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="startFaceCamera()">
+                    🎥 Start Camera
+                </button>
+                <button class="btn btn-success" onclick="captureFaceAuth()">
+                    📸 Capture & Authenticate
+                </button>
+                <button class="btn btn-danger" onclick="stopFaceCamera()">
+                    ⏹️ Stop Camera
+                </button>
+            </div>
+
+            <div id="faceStatus" class="status-message"></div>
+        </div>
+
+        <!-- Fingerprint Authentication Section -->
+        <div id="fingerprintAuthSection" class="auth-section" style="display: none;">
+            <h2>👆 Fingerprint Authentication</h2>
+
+            <div class="scanner-visual-large">
+                <div class="fingerprint-icon-large">👆</div>
+                <p class="scanner-instruction">Place finger on scanner</p>
+                <div class="scanner-animation" id="scannerAnimation"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="scanFingerprint()">
+                    🔍 Scan Fingerprint
+                </button>
+                <button class="btn btn-secondary" onclick="uploadFingerprintAuth()">
+                    📂 Upload Image
+                </button>
+            </div>
+
+            <input type="file" id="fingerprintAuthUpload" accept="image/*" 
+                   style="display: none;" onchange="handleFingerprintAuthUpload(event)">
+
+            <div id="fingerprintStatus" class="status-message"></div>
+        </div>
+
+        <!-- Fusion Authentication Section -->
+        <div id="fusionAuthSection" class="auth-section" style="display: none;">
+            <h2>🔒 Fusion Authentication (Face + Fingerprint)</h2>
+
+            <div class="fusion-grid">
+                <!-- Face Part -->
+                <div class="fusion-part">
+                    <h3>Step 1: Face</h3>
+                    <div class="mini-video-container">
+                        <video id="fusionFaceVideo" autoplay playsinline></video>
+                        <canvas id="fusionFaceCanvas" style="display: none;"></canvas>
+                    </div>
+                    <button class="btn btn-primary btn-small" onclick="startFusionFaceCamera()">
+                        📷 Capture Face
+                    </button>
+                    <div id="fusionFaceStatus" class="mini-status"></div>
+                </div>
+
+                <!-- Fingerprint Part -->
+                <div class="fusion-part">
+                    <h3>Step 2: Fingerprint</h3>
+                    <div class="mini-scanner">
+                        <div class="fingerprint-icon-medium">👆</div>
+                        <p>Scan fingerprint</p>
+                    </div>
+                    <button class="btn btn-primary btn-small" onclick="captureFusionFingerprint()">
+                        🔍 Scan Fingerprint
+                    </button>
+                    <div id="fusionFingerprintStatus" class="mini-status"></div>
+                </div>
+            </div>
+
+            <button class="btn btn-large btn-success" onclick="authenticateFusion()" 
+                    disabled id="fusionAuthBtn">
+                🔐 Authenticate with Fusion
+            </button>
+
+            <div id="fusionStatus" class="status-message"></div>
+        </div>
+
+        <!-- Authentication Result -->
+        <div id="resultSection" class="result-section" style="display: none;">
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        let currentMode = null;
+        let faceStream = null;
+        let fusionFaceStream = null;
+        let faceImageData = null;
+        let fingerprintImageData = null;
+        let fusionFaceData = null;
+        let fusionFingerprintData = null;
+
+        function selectMode(mode) {
+            currentMode = mode;
+            
+            // Hide all sections
+            document.getElementById('faceAuthSection').style.display = 'none';
+            document.getElementById('fingerprintAuthSection').style.display = 'none';
+            document.getElementById('fusionAuthSection').style.display = 'none';
+            document.getElementById('resultSection').style.display = 'none';
+
+            // Show selected section
+            if (mode === 'face') {
+                document.getElementById('faceAuthSection').style.display = 'block';
+            } else if (mode === 'fingerprint') {
+                document.getElementById('fingerprintAuthSection').style.display = 'block';
+            } else if (mode === 'fusion') {
+                document.getElementById('fusionAuthSection').style.display = 'block';
+            }
+
+            // Highlight selected mode
+            document.querySelectorAll('.mode-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.target.closest('.mode-card').classList.add('selected');
+        }
+
+        // Face Authentication
+        async function startFaceCamera() {
+            try {
+                faceStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 1280, height: 720, facingMode: 'user' }
+                });
+                document.getElementById('faceVideo').srcObject = faceStream;
+                showFaceStatus('✅ Camera started', 'success');
+            } catch (error) {
+                showFaceStatus('❌ Cannot access camera: ' + error.message, 'error');
+            }
+        }
+
+        function captureFaceAuth() {
+            const video = document.getElementById('faceVideo');
+            if (!video.srcObject) {
+                showFaceStatus('❌ Please start camera first', 'error');
+                return;
+            }
+
+            const canvas = document.getElementById('faceCanvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+
+            faceImageData = canvas.toDataURL('image/jpeg', 0.95);
+
+            showFaceStatus('📸 Face captured, authenticating...', 'loading');
+
+            authenticateWithFace();
+        }
+
+        async function authenticateWithFace() {
+            try {
+                const faceBase64 = faceImageData.split(',')[1];
+
+                const response = await fetch(`${API_URL}/api/authenticate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        face_image: faceBase64,
+                        fingerprint_image: null
+                    })
+                });
+
+                const data = await response.json();
+
+                showAuthResult(data);
+            } catch (error) {
+                showFaceStatus('❌ Authentication error: ' + error.message, 'error');
+            }
+        }
+
+        function stopFaceCamera() {
+            if (faceStream) {
+                faceStream.getTracks().forEach(track => track.stop());
+                document.getElementById('faceVideo').srcObject = null;
+                showFaceStatus('⏹️ Camera stopped', 'warning');
+            }
+        }
+
+        function showFaceStatus(message, type) {
+            const statusDiv = document.getElementById('faceStatus');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+        }
+
+        // Fingerprint Authentication
+        async function scanFingerprint() {
+            showFingerprintStatus('🔍 Scanning fingerprint...', 'loading');
+
+            // Show scanning animation
+            const animation = document.getElementById('scannerAnimation');
+            animation.innerHTML = '<div class="scan-line"></div>';
+            
+            // Simulate scan (3 seconds)
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            // For demo, create placeholder fingerprint
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = 400;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, 400, 400);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            
+            for (let i = 0; i < 15; i++) {
+                ctx.beginPath();
+                ctx.arc(200, 150 + (i * 15), 100 + (i * 10), 0, Math.PI);
+                ctx.stroke();
+            }
+
+            fingerprintImageData = canvas.toDataURL('image/jpeg', 0.95);
+
+            animation.innerHTML = '';
+
+            showFingerprintStatus('✅ Fingerprint captured, authenticating...', 'success');
+
+            authenticateWithFingerprint();
+        }
+
+        async function authenticateWithFingerprint() {
+            try {
+                const fingerprintBase64 = fingerprintImageData.split(',')[1];
+
+                const response = await fetch(`${API_URL}/api/authenticate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        face_image: null,
+                        fingerprint_image: fingerprintBase64
+                    })
+                });
+
+                const data = await response.json();
+
+                showAuthResult(data);
+            } catch (error) {
+                showFingerprintStatus('❌ Authentication error: ' + error.message, 'error');
+            }
+        }
+
+        function uploadFingerprintAuth() {
+            document.getElementById('fingerprintAuthUpload').click();
+        }
+
+        function handleFingerprintAuthUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fingerprintImageData = e.target.result;
+                showFingerprintStatus('✅ Image uploaded, authenticating...', 'success');
+                authenticateWithFingerprint();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showFingerprintStatus(message, type) {
+            const statusDiv = document.getElementById('fingerprintStatus');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+        }
+
+        // Fusion Authentication
+        async function startFusionFaceCamera() {
+            try {
+                fusionFaceStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                document.getElementById('fusionFaceVideo').srcObject = fusionFaceStream;
+                
+                // Auto-capture after 2 seconds
+                setTimeout(() => {
+                    const video = document.getElementById('fusionFaceVideo');
+                    const canvas = document.getElementById('fusionFaceCanvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0);
+                    
+                    fusionFaceData = canvas.toDataURL('image/jpeg', 0.95);
+                    
+                    document.getElementById('fusionFaceStatus').innerHTML = 
+                        '<span style="color: green;">✅ Face captured</span>';
+                    
+                    fusionFaceStream.getTracks().forEach(track => track.stop());
+                    document.getElementById('fusionFaceVideo').srcObject = null;
+                    
+                    checkFusionReady();
+                }, 2000);
+                
+                document.getElementById('fusionFaceStatus').innerHTML = 
+                    '<span style="color: blue;">📷 Capturing in 2 seconds...</span>';
+                
+            } catch (error) {
+                document.getElementById('fusionFaceStatus').innerHTML = 
+                    '<span style="color: red;">❌ Camera error</span>';
+            }
+        }
+
+        async function captureFusionFingerprint() {
+            document.getElementById('fusionFingerprintStatus').innerHTML = 
+                '<span style="color: blue;">🔍 Scanning...</span>';
+            
+            // Simulate scan
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Create placeholder fingerprint
+            const canvas = document.createElement('canvas');
+            canvas.width = 300;
+            canvas.height = 300;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, 300, 300);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            
+            for (let i = 0; i < 12; i++) {
+                ctx.beginPath();
+                ctx.arc(150, 120 + (i * 12), 80 + (i * 8), 0, Math.PI);
+                ctx.stroke();
+            }
+
+            fusionFingerprintData = canvas.toDataURL('image/jpeg', 0.95);
+            
+            document.getElementById('fusionFingerprintStatus').innerHTML = 
+                '<span style="color: green;">✅ Fingerprint captured</span>';
+            
+            checkFusionReady();
+        }
+
+        function checkFusionReady() {
+            if (fusionFaceData && fusionFingerprintData) {
+                document.getElementById('fusionAuthBtn').disabled = false;
+                showFusionStatus('✅ Both biometrics captured. Ready to authenticate!', 'success');
+            }
+        }
+
+        async function authenticateFusion() {
+            showFusionStatus('🔐 Authenticating with fusion mode...', 'loading');
+
+            try {
+                const faceBase64 = fusionFaceData.split(',')[1];
+                const fingerprintBase64 = fusionFingerprintData.split(',')[1];
+
+                const response = await fetch(`${API_URL}/api/authenticate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        face_image: faceBase64,
+                        fingerprint_image: fingerprintBase64
+                    })
+                });
+
+                const data = await response.json();
+
+                showAuthResult(data);
+            } catch (error) {
+                showFusionStatus('❌ Authentication error: ' + error.message, 'error');
+            }
+        }
+
+        function showFusionStatus(message, type) {
+            const statusDiv = document.getElementById('fusionStatus');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+        }
+
+        // Show Authentication Result
+        function showAuthResult(data) {
+            const resultSection = document.getElementById('resultSection');
+            const resultContent = document.getElementById('resultContent');
+
+            if (data.authenticated) {
+                resultContent.innerHTML = `
+                    <div class="result-success-large">
+                        <div class="success-icon">✅</div>
+                        <h2>Authentication Successful!</h2>
+                        <div class="student-info-card">
+                            <h3>${data.student_name}</h3>
+                            <p><strong>Student ID:</strong> ${data.student_id}</p>
+                            <p><strong>Room:</strong> ${data.room}</p>
+                            <p><strong>Department:</strong> ${data.department || 'N/A'}</p>
+                        </div>
+                        <div class="confidence-bar">
+                            <div class="confidence-label">Confidence Score</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${data.confidence * 100}%">
+                                    ${(data.confidence * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                        </div>
+                        ${data.face_match ? '<p class="match-detail">✅ Face matched</p>' : ''}
+                        ${data.fingerprint_match ? '<p class="match-detail">✅ Fingerprint matched</p>' : ''}
+                        <p class="timestamp">Authenticated at: ${new Date().toLocaleString()}</p>
+                        <button class="btn btn-primary" onclick="location.reload()">
+                            🔄 Authenticate Another Student
+                        </button>
+                    </div>
+                `;
+            } else {
+                resultContent.innerHTML = `
+                    <div class="result-failure-large">
+                        <div class="failure-icon">❌</div>
+                        <h2>Authentication Failed</h2>
+                        <p class="failure-message">${data.error || 'Biometrics do not match any registered student'}</p>
+                        <div class="failure-details">
+                            <p>Confidence: ${data.confidence ? (data.confidence * 100).toFixed(1) + '%' : 'N/A'}</p>
+                            <p>This might be due to:</p>
+                            <ul>
+                                <li>Student not registered in system</li>
+                                <li>Poor image quality</li>
+                                <li>Incorrect positioning</li>
+                                <li>Low lighting conditions</li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-warning" onclick="location.reload()">
+                            🔄 Try Again
+                        </button>
+                        <a href="register-face.html" class="btn btn-secondary">
+                            📝 Register New Student
+                        </a>
+                    </div>
+                `;
+            }
+
+            resultSection.style.display = 'block';
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            stopFaceCamera();
+            if (fusionFaceStream) {
+                fusionFaceStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>

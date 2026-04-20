@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Logs - Hall Fusion System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="fusion.html">Dashboard</a> > Authentication Logs
+        </nav>
+
+        <header class="header">
+            <h1>📜 Authentication Logs</h1>
+            <p>View authentication history and audit trail</p>
+        </header>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <h2>🔍 Filter Logs</h2>
+            <div class="filter-grid">
+                <div class="form-group">
+                    <label>Time Range:</label>
+                    <select class="form-control" id="timeRange" title="Select Time Range" onchange="loadLogs()">
+                        <option value="1">Today</option>
+                        <option value="7">Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="all">All Time</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select class="form-control" id="statusFilter" title="Filter by Status" onchange="loadLogs()">
+                        <option value="">All</option>
+                        <option value="success">Success Only</option>
+                        <option value="failure">Failed Only</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Student ID:</label>
+                    <input type="text" class="form-control" id="studentFilter" 
+                           placeholder="Enter Student ID">
+                </div>
+
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary" onclick="loadLogs()">
+                        🔄 Apply Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-section">
+            <div class="summary-card-row">
+                <div class="summary-card">
+                    <div class="summary-icon">✅</div>
+                    <div class="summary-data">
+                        <div class="summary-value" id="successCount">-</div>
+                        <div class="summary-label">Successful</div>
+                    </div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="summary-icon">❌</div>
+                    <div class="summary-data">
+                        <div class="summary-value" id="failureCount">-</div>
+                        <div class="summary-label">Failed</div>
+                    </div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="summary-icon">📊</div>
+                    <div class="summary-data">
+                        <div class="summary-value" id="successRate">-</div>
+                        <div class="summary-label">Success Rate</div>
+                    </div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="summary-icon">👥</div>
+                    <div class="summary-data">
+                        <div class="summary-value" id="uniqueUsers">-</div>
+                        <div class="summary-label">Unique Users</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Table -->
+        <div class="logs-section">
+            <h2>📋 Log Entries</h2>
+            <div class="table-controls">
+                <button class="btn btn-secondary" onclick="exportLogs()">
+                    📥 Export Logs
+                </button>
+                <button class="btn btn-secondary" onclick="loadLogs()">
+                    🔄 Refresh
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th>Confidence</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTableBody">
+                        <tr>
+                            <td colspan="7" class="loading-row">Loading logs...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination" id="pagination"></div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+            <h2>📈 Analytics</h2>
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h3>Authentication Methods</h3>
+                    <div id="methodsChart" class="chart-canvas"></div>
+                </div>
+
+                <div class="chart-container">
+                    <h3>Hourly Activity</h3>
+                    <div id="hourlyChart" class="chart-canvas"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        let allLogs = [];
+        let currentPage = 1;
+        const itemsPerPage = 25;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadLogs();
+        });
+
+        async function loadLogs() {
+            try {
+                const timeRange = document.getElementById('timeRange').value;
+                const statusFilter = document.getElementById('statusFilter').value;
+                const studentId = document.getElementById('studentFilter').value;
+
+                let url = `${API_URL}/api/logs?limit=500`;
+                
+                if (studentId) {
+                    url += `&student_id=${studentId}`;
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success) {
+                    allLogs = data.logs;
+
+                    // Apply filters
+                    allLogs = applyFilters(allLogs, timeRange, statusFilter);
+
+                    updateSummary();
+                    displayLogs();
+                    updateCharts();
+                } else {
+                    showError('Failed to load logs');
+                }
+            } catch (error) {
+                showError('Error: ' + error.message);
+            }
+        }
+
+        function applyFilters(logs, timeRange, statusFilter) {
+            let filtered = logs;
+
+            // Time range filter
+            if (timeRange !== 'all') {
+                const cutoffDate = new Date();
+                cutoffDate.setDate(cutoffDate.getDate() - parseInt(timeRange));
+                
+                filtered = filtered.filter(log => 
+                    new Date(log.timestamp) >= cutoffDate
+                );
+            }
+
+            // Status filter
+            if (statusFilter) {
+                const isSuccess = statusFilter === 'success';
+                filtered = filtered.filter(log => log.authenticated === isSuccess);
+            }
+
+            return filtered;
+        }
+
+        function updateSummary() {
+            const total = allLogs.length;
+            const successful = allLogs.filter(l => l.authenticated).length;
+            const failed = total - successful;
+            const uniqueUsers = new Set(allLogs.map(l => l.student_id)).size;
+            const successRate = total > 0 ? ((successful / total) * 100).toFixed(1) : 0;
+
+            document.getElementById('successCount').textContent = successful;
+            document.getElementById('failureCount').textContent = failed;
+            document.getElementById('successRate').textContent = successRate + '%';
+            document.getElementById('uniqueUsers').textContent = uniqueUsers;
+        }
+
+        function displayLogs() {
+            const tbody = document.getElementById('logsTableBody');
+
+            if (allLogs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="no-data">No logs found</td></tr>';
+                return;
+            }
+
+            const start = (currentPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageLogs = allLogs.slice(start, end);
+
+            tbody.innerHTML = pageLogs.map(log => {
+                const statusClass = log.authenticated ? 'success' : 'failure';
+                const statusIcon = log.authenticated ? '✅' : '❌';
+                const method = getAuthMethod(log);
+
+                return `
+                    <tr class="log-row log-${statusClass}">
+                        <td>${formatDateTime(log.timestamp)}</td>
+                        <td>${log.student_id || 'N/A'}</td>
+                        <td>${log.student_name || 'Unknown'}</td>
+                        <td>
+                            <span class="method-badge">${method}</span>
+                        </td>
+                        <td>
+                            <span class="status-badge status-${statusClass}">
+                                ${statusIcon} ${log.authenticated ? 'Success' : 'Failed'}
+                            </span>
+                        </td>
+                        <td>
+                            ${log.confidence ? 
+                                `<span class="confidence-badge">${(log.confidence * 100).toFixed(0)}%</span>` 
+                                : 'N/A'}
+                        </td>
+                        <td>
+                            <button class="btn-icon" onclick="viewLogDetails('${log.log_id || log.timestamp}')" 
+                                    title="View Details">
+                                👁️
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            renderPagination();
+        }
+
+        function getAuthMethod(log) {
+            if (log.face_match && log.fingerprint_match) return '🔒 Fusion';
+            if (log.face_match) return '👤 Face';
+            if (log.fingerprint_match) return '👆 Fingerprint';
+            return '❓ Unknown';
+        }
+
+        function renderPagination() {
+            const totalPages = Math.ceil(allLogs.length / itemsPerPage);
+            const pagination = document.getElementById('pagination');
+
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '<div class="pagination-buttons">';
+            
+            html += `
+                <button class="pagination-btn" onclick="changePage(${currentPage - 1})" 
+                        ${currentPage === 1 ? 'disabled' : ''}>
+                    ← Previous
+                </button>
+            `;
+
+            for (let i = 1; i <= Math.min(totalPages, 10); i++) {
+                html += `
+                    <button class="pagination-btn ${i === currentPage ? 'active' : ''}" 
+                            onclick="changePage(${i})">
+                        ${i}
+                    </button>
+                `;
+            }
+
+            html += `
+                <button class="pagination-btn" onclick="changePage(${currentPage + 1})" 
+                        ${currentPage === totalPages ? 'disabled' : ''}>
+                    Next →
+                </button>
+            `;
+
+            html += '</div>';
+            pagination.innerHTML = html;
+        }
+
+        function changePage(page) {
+            const totalPages = Math.ceil(allLogs.length / itemsPerPage);
+            if (page < 1 || page > totalPages) return;
+            
+            currentPage = page;
+            displayLogs();
+        }
+
+        function updateCharts() {
+            // Method distribution
+            const methodCounts = {
+                'Face': 0,
+                'Fingerprint': 0,
+                'Fusion': 0
+            };
+
+            allLogs.forEach(log => {
+                if (log.face_match && log.fingerprint_match) methodCounts['Fusion']++;
+                else if (log.face_match) methodCounts['Face']++;
+                else if (log.fingerprint_match) methodCounts['Fingerprint']++;
+            });
+
+            displayMethodsChart(methodCounts);
+
+            // Hourly distribution
+            const hourlyCounts = Array(24).fill(0);
+            allLogs.forEach(log => {
+                const hour = new Date(log.timestamp).getHours();
+                hourlyCounts[hour]++;
+            });
+
+            displayHourlyChart(hourlyCounts);
+        }
+
+        function displayMethodsChart(data) {
+            const container = document.getElementById('methodsChart');
+            const total = Object.values(data).reduce((a, b) => a + b, 0);
+
+            if (total === 0) {
+                container.innerHTML = '<p class="no-data">No data available</p>';
+                return;
+            }
+
+            container.innerHTML = Object.entries(data).map(([method, count]) => {
+                const percentage = ((count / total) * 100).toFixed(1);
+                return `
+                    <div class="chart-bar-item">
+                        <span class="chart-label">${method}</span>
+                        <div class="chart-bar">
+                            <div class="chart-bar-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <span class="chart-value">${count} (${percentage}%)</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function displayHourlyChart(data) {
+            const container = document.getElementById('hourlyChart');
+            const max = Math.max(...data);
+
+            if (max === 0) {
+                container.innerHTML = '<p class="no-data">No data available</p>';
+                return;
+            }
+
+            container.innerHTML = data.map((count, hour) => {
+                const height = (count / max) * 100;
+                return `
+                    <div class="hour-bar" title="${hour}:00 - ${count} logins">
+                        <div class="hour-bar-fill" style="height: ${height}%"></div>
+                        <span class="hour-label">${hour}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function viewLogDetails(logId) {
+            const log = allLogs.find(l => l.log_id === logId || l.timestamp === logId);
+            if (!log) return;
+
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="modal-close" onclick="this.parentElement.parentElement.remove()">×</span>
+                    <h2>Log Details</h2>
+                    <div class="log-details">
+                        <p><strong>Timestamp:</strong> ${formatDateTime(log.timestamp)}</p>
+                        <p><strong>Student ID:</strong> ${log.student_id || 'N/A'}</p>
+                        <p><strong>Name:</strong> ${log.student_name || 'Unknown'}</p>
+                        <p><strong>Status:</strong> ${log.authenticated ? '✅ Success' : '❌ Failed'}</p>
+                        <p><strong>Face Match:</strong> ${log.face_match ? '✅ Yes' : '❌ No'}</p>
+                        <p><strong>Fingerprint Match:</strong> ${log.fingerprint_match ? '✅ Yes' : '❌ No'}</p>
+                        <p><strong>Confidence:</strong> ${log.confidence ? (log.confidence * 100).toFixed(2) + '%' : 'N/A'}</p>
+                        <p><strong>Error:</strong> ${log.error || 'None'}</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="this.closest('.modal').remove()">
+                        Close
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function exportLogs() {
+            const csv = convertLogsToCSV(allLogs);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `auth_logs_${new Date().getTime()}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function convertLogsToCSV(logs) {
+            const headers = ['Timestamp', 'Student ID', 'Name', 'Status', 'Method', 'Confidence'];
+            const rows = logs.map(l => [
+                formatDateTime(l.timestamp),
+                l.student_id || 'N/A',
+                l.student_name || 'Unknown',
+                l.authenticated ? 'Success' : 'Failed',
+                getAuthMethod(l),
+                l.confidence ? (l.confidence * 100).toFixed(2) + '%' : 'N/A'
+            ]);
+
+            return [
+                headers.join(','),
+                ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+            ].join('\n');
+        }
+
+        function formatDateTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+
+        function showError(message) {
+            document.getElementById('logsTableBody').innerHTML = `
+                <tr><td colspan="7" class="error-message">${message}</td></tr>
+            `;
+        }
+    </script>
+</body>
+</html>

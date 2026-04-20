@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Dashboard - Hall Fusion System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="fusion.html">Dashboard</a> > Monitoring Dashboard
+        </nav>
+
+        <header class="header">
+            <h1>📊 Monitoring Dashboard</h1>
+            <p>View and analyze monitoring data</p>
+        </header>
+
+        <!-- Time Range Filter -->
+        <div class="filter-section">
+            <h2>🔍 Filter Options</h2>
+            <div class="filter-grid">
+                <div class="form-group">
+                    <label>Time Range:</label>
+                    <select class="form-control" id="timeRange" title="Select Time Range" onchange="loadDashboard()">
+                        <option value="1">Last 24 Hours</option>
+                        <option value="7">Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="customRangeGroup" style="display: none;">
+                    <label>Start Date:</label>
+                    <input type="datetime-local" class="form-control" id="startDate">
+                </div>
+
+                <div class="form-group" id="customRangeGroup2" style="display: none;">
+                    <label>End Date:</label>
+                    <input type="datetime-local" class="form-control" id="endDate">
+                </div>
+
+                <div class="form-group">
+                    <label>Location:</label>
+                    <select class="form-control" id="locationFilter" title="Filter by Location" onchange="loadDashboard()">
+                        <option value="">All Locations</option>
+                        <option value="hall_corridor_2a">Hall Corridor 2A</option>
+                        <option value="hall_entrance">Hall Entrance</option>
+                        <option value="common_room">Common Room</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary" onclick="loadDashboard()">
+                        🔄 Apply Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Statistics -->
+        <div class="stats-section" id="statsSection">
+            <h2>📈 Summary Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card-large">
+                    <div class="stat-icon">🔍</div>
+                    <div class="stat-value" id="totalDetections">-</div>
+                    <div class="stat-label">Total Detections</div>
+                </div>
+
+                <div class="stat-card-large">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-value" id="uniqueStudents">-</div>
+                    <div class="stat-label">Unique Students</div>
+                </div>
+
+                <div class="stat-card-large">
+                    <div class="stat-icon">📍</div>
+                    <div class="stat-value" id="totalLocations">-</div>
+                    <div class="stat-label">Monitored Locations</div>
+                </div>
+
+                <div class="stat-card-large">
+                    <div class="stat-icon">🚨</div>
+                    <div class="stat-value" id="pendingAlerts">-</div>
+                    <div class="stat-label">Pending Alerts</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Most Active Locations -->
+        <div class="locations-section">
+            <h2>📍 Most Active Locations</h2>
+            <div id="activeLocations" class="locations-chart"></div>
+        </div>
+
+        <!-- Recent Detections -->
+        <div class="detections-section">
+            <h2>🕐 Recent Detections</h2>
+            <div class="table-controls">
+                <input type="text" class="search-input" id="searchStudent" 
+                       placeholder="Search by Student ID or Name...">
+                <button class="btn btn-secondary" onclick="exportToCSV()">
+                    📥 Export CSV
+                </button>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="detectionsTable">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Location</th>
+                            <th>Confidence</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detectionsTableBody">
+                        <tr>
+                            <td colspan="6" class="loading-row">Loading data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+
+        <!-- Student Activity Timeline -->
+        <div class="timeline-section">
+            <h2>👤 Student Activity Timeline</h2>
+            <div class="form-group">
+                <label>Select Student:</label>
+                <select class="form-control" id="timelineStudent" title="Select a student for the timeline" onchange="loadTimeline()">
+                    <option value="">-- Select Student --</option>
+                </select>
+            </div>
+            <div id="timelineContainer" class="timeline-container"></div>
+        </div>
+
+        <!-- Alerts Panel -->
+        <div class="alerts-section">
+            <h2>🚨 Security Alerts</h2>
+            <div class="alerts-filter">
+                <button class="btn btn-small" onclick="filterAlerts('all')">All</button>
+                <button class="btn btn-small btn-warning" onclick="filterAlerts('pending')">Pending</button>
+                <button class="btn btn-small btn-success" onclick="filterAlerts('reviewed')">Reviewed</button>
+                <button class="btn btn-small btn-danger" onclick="filterAlerts('high')">High Priority</button>
+            </div>
+            <div id="alertsList" class="alerts-list"></div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        let allDetections = [];
+        let currentPage = 1;
+        const itemsPerPage = 20;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDashboard();
+            setupTimeRangeToggle();
+        });
+
+        function setupTimeRangeToggle() {
+            document.getElementById('timeRange').addEventListener('change', (e) => {
+                const customGroups = document.querySelectorAll('[id^="customRangeGroup"]');
+                if (e.target.value === 'custom') {
+                    customGroups.forEach(g => g.style.display = 'block');
+                } else {
+                    customGroups.forEach(g => g.style.display = 'none');
+                }
+            });
+        }
+
+        async function loadDashboard() {
+            try {
+                const days = document.getElementById('timeRange').value;
+                const location = document.getElementById('locationFilter').value;
+
+                // Load summary statistics
+                const dashboardResponse = await fetch(
+                    `${API_URL}/api/monitor/dashboard?days=${days}`
+                );
+                const dashboardData = await dashboardResponse.json();
+
+                if (dashboardData.success) {
+                    displaySummaryStats(dashboardData);
+                    displayActiveLocations(dashboardData.most_active_locations);
+                    displayRecentDetections(dashboardData.recent_events);
+                    loadStudentList();
+                }
+
+                // Load alerts
+                loadAlerts();
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                showError('statsSection', 'Failed to load dashboard data');
+            }
+        }
+
+        function displaySummaryStats(data) {
+            document.getElementById('totalDetections').textContent = 
+                data.statistics.total_detections || 0;
+            document.getElementById('uniqueStudents').textContent = 
+                data.statistics.unique_students || 0;
+            document.getElementById('totalLocations').textContent = 
+                data.statistics.total_locations || 0;
+            document.getElementById('pendingAlerts').textContent = 
+                data.statistics.pending_alerts || 0;
+        }
+
+        function displayActiveLocations(locations) {
+            const container = document.getElementById('activeLocations');
+            
+            if (!locations || locations.length === 0) {
+                container.innerHTML = '<p class="no-data">No location data available</p>';
+                return;
+            }
+
+            const maxDetections = Math.max(...locations.map(l => l.detections));
+
+            container.innerHTML = locations.map(location => {
+                const percentage = (location.detections / maxDetections) * 100;
+                return `
+                    <div class="location-bar">
+                        <div class="location-info">
+                            <span class="location-name">${location.location}</span>
+                            <span class="location-count">${location.detections} detections</span>
+                        </div>
+                        <div class="location-progress">
+                            <div class="location-progress-fill" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function displayRecentDetections(detections) {
+            allDetections = detections || [];
+            
+            if (allDetections.length === 0) {
+                document.getElementById('detectionsTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="no-data">No detections found</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            renderDetectionsTable();
+        }
+
+        function renderDetectionsTable() {
+            const tbody = document.getElementById('detectionsTableBody');
+            const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
+
+            // Filter detections
+            let filtered = allDetections;
+            if (searchTerm) {
+                filtered = allDetections.filter(d => 
+                    d.student_id.toLowerCase().includes(searchTerm) ||
+                    (d.student_name && d.student_name.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            // Pagination
+            const totalPages = Math.ceil(filtered.length / itemsPerPage);
+            const start = (currentPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageDetections = filtered.slice(start, end);
+
+            // Render table
+            tbody.innerHTML = pageDetections.map(detection => {
+                const confidenceClass = detection.confidence > 0.8 ? 'high' : 
+                                       detection.confidence > 0.6 ? 'medium' : 'low';
+                
+                return `
+                    <tr>
+                        <td>${formatDateTime(detection.timestamp)}</td>
+                        <td>${detection.student_id}</td>
+                        <td>${detection.student_name || 'Unknown'}</td>
+                        <td>
+                            <span class="location-badge">${detection.location}</span>
+                        </td>
+                        <td>
+                            <span class="confidence-badge confidence-${confidenceClass}">
+                                ${(detection.confidence * 100).toFixed(0)}%
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn-icon" onclick="viewDetails('${detection.event_id}')" 
+                                    title="View Details">
+                                👁️
+                            </button>
+                            ${detection.frame_path ? `
+                                <button class="btn-icon" onclick="viewFrame('${detection.frame_path}')" 
+                                        title="View Frame">
+                                    🖼️
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Render pagination
+            renderPagination(totalPages);
+        }
+
+        function renderPagination(totalPages) {
+            const pagination = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '<div class="pagination-buttons">';
+            
+            // Previous button
+            html += `
+                <button class="pagination-btn" 
+                        onclick="changePage(${currentPage - 1})"
+                        ${currentPage === 1 ? 'disabled' : ''}>
+                    ← Previous
+                </button>
+            `;
+
+            // Page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += `
+                        <button class="pagination-btn ${i === currentPage ? 'active' : ''}"
+                                onclick="changePage(${i})">
+                            ${i}
+                        </button>
+                    `;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += '<span class="pagination-ellipsis">...</span>';
+                }
+            }
+
+            // Next button
+            html += `
+                <button class="pagination-btn" 
+                        onclick="changePage(${currentPage + 1})"
+                        ${currentPage === totalPages ? 'disabled' : ''}>
+                    Next →
+                </button>
+            `;
+
+            html += '</div>';
+            pagination.innerHTML = html;
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            renderDetectionsTable();
+        }
+
+        // Search functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('searchStudent');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    currentPage = 1;
+                    renderDetectionsTable();
+                });
+            }
+        });
+
+        async function loadStudentList() {
+            try {
+                const response = await fetch(`${API_URL}/api/students`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const select = document.getElementById('timelineStudent');
+                    select.innerHTML = '<option value="">-- Select Student --</option>';
+                    
+                    data.students.forEach(student => {
+                        const option = document.createElement('option');
+                        option.value = student.id;
+                        option.textContent = `${student.id} - ${student.name}`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading students:', error);
+            }
+        }
+
+        async function loadTimeline() {
+            const studentId = document.getElementById('timelineStudent').value;
+            if (!studentId) {
+                document.getElementById('timelineContainer').innerHTML = '';
+                return;
+            }
+
+            try {
+                const days = document.getElementById('timeRange').value;
+                const response = await fetch(
+                    `${API_URL}/api/monitor/student/${studentId}?days=${days}`
+                );
+                const data = await response.json();
+
+                if (data.success) {
+                    displayTimeline(data);
+                }
+            } catch (error) {
+                console.error('Error loading timeline:', error);
+            }
+        }
+
+        function displayTimeline(data) {
+            const container = document.getElementById('timelineContainer');
+
+            if (!data.timeline || data.timeline.length === 0) {
+                container.innerHTML = '<p class="no-data">No activity found for this student</p>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="timeline-summary">
+                    <p><strong>Total Detections:</strong> ${data.total_detections}</p>
+                    <p><strong>Locations Visited:</strong> ${data.locations.join(', ')}</p>
+                    <p><strong>First Detection:</strong> ${formatDateTime(data.summary.first_detection)}</p>
+                    <p><strong>Last Detection:</strong> ${formatDateTime(data.summary.last_detection)}</p>
+                </div>
+                <div class="timeline-events">
+                    ${data.timeline.slice(0, 20).map(event => `
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <div class="timeline-time">${formatDateTime(event.timestamp)}</div>
+                                <div class="timeline-location">${event.location}</div>
+                                <div class="timeline-confidence">
+                                    Confidence: ${(event.confidence * 100).toFixed(0)}%
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        async function loadAlerts() {
+            try {
+                const response = await fetch(`${API_URL}/api/alerts`);
+                const data = await response.json();
+
+                if (data.success) {
+                    displayAlerts(data.alerts);
+                }
+            } catch (error) {
+                console.error('Error loading alerts:', error);
+            }
+        }
+
+        function displayAlerts(alerts) {
+            const container = document.getElementById('alertsList');
+
+            if (!alerts || alerts.length === 0) {
+                container.innerHTML = '<p class="no-data">No alerts found</p>';
+                return;
+            }
+
+            container.innerHTML = alerts.map(alert => {
+                const severityClass = alert.severity || 'medium';
+                const statusClass = alert.status || 'pending';
+
+                return `
+                    <div class="alert-card alert-${severityClass}">
+                        <div class="alert-header">
+                            <span class="alert-badge alert-badge-${severityClass}">
+                                ${alert.severity?.toUpperCase() || 'MEDIUM'}
+                            </span>
+                            <span class="alert-status alert-status-${statusClass}">
+                                ${alert.status?.toUpperCase() || 'PENDING'}
+                            </span>
+                        </div>
+                        <div class="alert-body">
+                            <h4>${alert.alert_type?.replace(/_/g, ' ') || 'Security Alert'}</h4>
+                            <p><strong>Student:</strong> ${alert.student_id}</p>
+                            <p><strong>Location:</strong> ${alert.location}</p>
+                            <p><strong>Description:</strong> ${alert.description || 'No description'}</p>
+                            <p class="alert-time">${formatDateTime(alert.timestamp)}</p>
+                        </div>
+                        <div class="alert-actions">
+                            <button class="btn btn-small btn-success" 
+                                    onclick="updateAlertStatus('${alert.alert_id}', 'reviewed')">
+                                ✅ Mark Reviewed
+                            </button>
+                            <button class="btn btn-small btn-danger" 
+                                    onclick="updateAlertStatus('${alert.alert_id}', 'resolved')">
+                                ✔️ Resolve
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterAlerts(type) {
+            // Implement alert filtering
+            console.log('Filter alerts by:', type);
+        }
+
+        async function updateAlertStatus(alertId, status) {
+            try {
+                const response = await fetch(`${API_URL}/api/alerts/${alertId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: status })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`✅ Alert ${status}`);
+                    loadAlerts();
+                } else {
+                    alert('❌ Failed to update alert');
+                }
+            } catch (error) {
+                alert('❌ Error updating alert: ' + error.message);
+            }
+        }
+
+        function viewDetails(eventId) {
+            alert(`View details for event: ${eventId}`);
+            // Implement detail view
+        }
+
+        function viewFrame(framePath) {
+            window.open(framePath, '_blank');
+        }
+
+        function exportToCSV() {
+            const csv = convertToCSV(allDetections);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `monitoring_detections_${new Date().getTime()}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function convertToCSV(data) {
+            const headers = ['Timestamp', 'Student ID', 'Name', 'Location', 'Confidence'];
+            const rows = data.map(d => [
+                formatDateTime(d.timestamp),
+                d.student_id,
+                d.student_name || 'Unknown',
+                d.location,
+                (d.confidence * 100).toFixed(2) + '%'
+            ]);
+
+            return [
+                headers.join(','),
+                ...rows.map(row => row.join(','))
+            ].join('\n');
+        }
+
+        function formatDateTime(isoString) {
+            if (!isoString) return 'N/A';
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+    </script>
+</body>
+</html>

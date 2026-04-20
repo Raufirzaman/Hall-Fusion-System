@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Registration - Hall Fusion System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="fusion.html">Dashboard</a> > Face Registration
+        </nav>
+
+        <header class="header">
+            <h1>👤 Face Image Registration</h1>
+            <p>Capture frontal face for students without biometric data</p>
+        </header>
+
+        <!-- Capture Guidelines -->
+        <div class="guidelines-section">
+            <h2>📋 Capture Guidelines</h2>
+            <div class="comparison-grid">
+                <div class="comparison-box good">
+                    <h3>✅ GOOD CAPTURE</h3>
+                    <div class="example-icon">😊</div>
+                    <ul>
+                        <li>Face directly facing camera</li>
+                        <li>Good, even lighting</li>
+                        <li>Neutral expression</li>
+                        <li>Eyes clearly visible</li>
+                        <li>No glasses/mask</li>
+                        <li>Plain background</li>
+                        <li>Distance: 2-3 feet</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-box bad">
+                    <h3>❌ BAD CAPTURE</h3>
+                    <div class="example-icon">😎</div>
+                    <ul>
+                        <li>Face turned sideways</li>
+                        <li>Too dark/bright</li>
+                        <li>Sunglasses worn</li>
+                        <li>Hair covering face</li>
+                        <li>Multiple people</li>
+                        <li>Blurry/moving</li>
+                        <li>Too close/far</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Pre-Capture Checklist -->
+            <div class="checklist">
+                <h3>✓ Pre-Capture Checklist</h3>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="check1">
+                    <span>Good lighting in room (natural light preferred)</span>
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="check2">
+                    <span>Plain background (wall, not cluttered)</span>
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="check3">
+                    <span>Face clean (no glasses, hat, or mask)</span>
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="check4">
+                    <span>Camera permission granted</span>
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="check5">
+                    <span>Sitting at proper distance (2-3 feet)</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Student Selection -->
+        <div class="form-section">
+            <h2>1️⃣ Select Student</h2>
+            <div class="form-group">
+                <label for="studentSelect">Choose Student (No Biometrics):</label>
+                <select id="studentSelect" class="form-control">
+                    <option value="">Loading students...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="studentId">Or Enter Student ID:</label>
+                <input type="text" id="studentId" class="form-control" 
+                       placeholder="e.g., 0812220205101001">
+            </div>
+            <div id="studentInfo" class="info-box"></div>
+        </div>
+
+        <!-- Camera Capture -->
+        <div class="capture-section">
+            <h2>2️⃣ Capture Face Image</h2>
+            
+            <div class="video-container">
+                <video id="video" autoplay playsinline></video>
+                <div class="face-guide-overlay"></div>
+                <canvas id="canvas" style="display: none;"></canvas>
+            </div>
+
+            <div class="angle-indicator" id="angleIndicator">
+                <span id="angleText">Position your face in the frame</span>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="startCamera()">
+                    🎥 Start Camera
+                </button>
+                <button class="btn btn-success" onclick="captureFace()">
+                    📸 Capture Face
+                </button>
+                <button class="btn btn-danger" onclick="stopCamera()">
+                    ⏹️ Stop Camera
+                </button>
+            </div>
+
+            <div id="captureStatus" class="status-message"></div>
+        </div>
+
+        <!-- Preview and Register -->
+        <div class="preview-section">
+            <h2>3️⃣ Review and Register</h2>
+            <div class="preview-box">
+                <h3>Captured Image:</h3>
+                <div id="facePreview" class="preview-area">
+                    <span class="placeholder-text">No image captured yet</span>
+                </div>
+            </div>
+
+            <div class="upload-option">
+                <h3>Or Upload Image:</h3>
+                <input type="file" id="faceUpload" accept="image/*" 
+                       onchange="handleImageUpload(event)">
+                <label for="faceUpload" class="btn btn-secondary">
+                    📂 Choose File
+                </label>
+            </div>
+
+            <button class="btn btn-large btn-success" onclick="registerFace()" 
+                    disabled id="registerBtn">
+                ✅ Register Face Image
+            </button>
+
+            <div id="result" class="result-message"></div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        let stream = null;
+        let faceImageData = null;
+        let selectedStudentId = null;
+
+        // Load students without biometrics
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadStudentsWithoutBiometrics();
+        });
+
+        async function loadStudentsWithoutBiometrics() {
+            try {
+                const response = await fetch(`${API_URL}/api/students`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const select = document.getElementById('studentSelect');
+                    select.innerHTML = '<option value="">-- Select Student --</option>';
+
+                    const withoutBio = data.students.filter(s => !s.has_biometrics);
+
+                    if (withoutBio.length === 0) {
+                        select.innerHTML = '<option value="">All students have biometrics registered ✅</option>';
+                        return;
+                    }
+
+                    withoutBio.forEach(student => {
+                        const option = document.createElement('option');
+                        option.value = student.id;
+                        option.textContent = `${student.id} - ${student.name} (Room: ${student.room})`;
+                        select.appendChild(option);
+                    });
+
+                    select.addEventListener('change', (e) => {
+                        document.getElementById('studentId').value = e.target.value;
+                        loadStudentInfo(e.target.value);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading students:', error);
+                showStatus('Error loading students: ' + error.message, 'error');
+            }
+        }
+
+        async function loadStudentInfo(studentId) {
+            if (!studentId) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/students/${studentId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const student = data.student;
+                    selectedStudentId = studentId;
+
+                    document.getElementById('studentInfo').innerHTML = `
+                        <div class="info-box-success">
+                            <h4>✅ Student Found</h4>
+                            <p><strong>Name:</strong> ${student.name}</p>
+                            <p><strong>ID:</strong> ${student.id}</p>
+                            <p><strong>Room:</strong> ${student.room}</p>
+                            <p><strong>Department:</strong> ${student.department || 'N/A'}</p>
+                            <p><strong>Biometrics:</strong> 
+                                ${student.has_biometrics ? '✅ Already Registered' : '❌ Not Registered'}
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('studentInfo').innerHTML = `
+                        <div class="info-box-error">
+                            <p>❌ Student not found in database</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading student:', error);
+                showStatus('Error loading student info: ' + error.message, 'error');
+            }
+        }
+
+        // Manual ID entry
+        document.getElementById('studentId').addEventListener('change', (e) => {
+            loadStudentInfo(e.target.value);
+        });
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    }
+                });
+
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+
+                // Start face angle detection
+                detectFaceAngle();
+
+                showStatus('✅ Camera started successfully', 'success');
+            } catch (error) {
+                console.error('Camera error:', error);
+                showStatus('❌ Cannot access camera: ' + error.message, 'error');
+            }
+        }
+
+        function detectFaceAngle() {
+            const angleText = document.getElementById('angleText');
+            angleText.innerHTML = `
+                <span style="color: green;">✅ Ready to capture</span><br>
+                <small>Make sure your face is centered and frontal</small>
+            `;
+        }
+
+        function captureFace() {
+            const studentId = selectedStudentId || document.getElementById('studentId').value;
+
+            if (!studentId) {
+                showStatus('❌ Please select or enter Student ID first', 'error');
+                return;
+            }
+
+            const video = document.getElementById('video');
+            if (!video.srcObject) {
+                showStatus('❌ Please start camera first', 'error');
+                return;
+            }
+
+            const canvas = document.getElementById('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0);
+
+            // Get image as base64 (JPEG with high quality)
+            faceImageData = canvas.toDataURL('image/jpeg', 0.95);
+            
+            console.log('Face captured, data length:', faceImageData.length);
+
+            document.getElementById('facePreview').innerHTML = `
+                <img src="${faceImageData}" alt="Captured Face">
+            `;
+
+            document.getElementById('registerBtn').disabled = false;
+
+            showStatus('✅ Face captured successfully!', 'success');
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            console.log('File selected:', file.name, file.type, file.size);
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                showStatus('❌ Please select an image file', 'error');
+                return;
+            }
+
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showStatus('❌ File too large. Maximum size: 5MB', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                faceImageData = e.target.result;
+                
+                console.log('Image loaded, data length:', faceImageData.length);
+                
+                document.getElementById('facePreview').innerHTML = `
+                    <img src="${faceImageData}" alt="Uploaded Face">
+                `;
+
+                document.getElementById('registerBtn').disabled = false;
+                showStatus('✅ Image uploaded successfully', 'success');
+            };
+            
+            reader.onerror = function(error) {
+                console.error('File read error:', error);
+                showStatus('❌ Error reading file: ' + error, 'error');
+            };
+            
+            reader.readAsDataURL(file);
+        }
+
+        async function registerFace() {
+            const studentId = selectedStudentId || document.getElementById('studentId').value;
+
+            if (!studentId) {
+                showStatus('❌ Please select or enter Student ID', 'error');
+                return;
+            }
+
+            if (!faceImageData) {
+                showStatus('❌ Please capture or upload a face image', 'error');
+                return;
+            }
+
+            showStatus('⏳ Registering face... Please wait...', 'loading');
+            
+            console.log('Starting registration for:', studentId);
+            console.log('Face data available:', faceImageData ? 'Yes' : 'No');
+
+            try {
+                // Extract base64 data (remove data URL prefix if present)
+                let faceBase64 = faceImageData;
+                if (faceImageData.includes(',')) {
+                    faceBase64 = faceImageData.split(',')[1];
+                }
+                
+                console.log('Base64 length:', faceBase64.length);
+
+                const requestBody = {
+                    student_id: studentId,
+                    face_image: faceBase64,
+                    fingerprint_image: null
+                };
+                
+                console.log('Sending request to:', `${API_URL}/api/register`);
+
+                const response = await fetch(`${API_URL}/api/register`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                console.log('Response status:', response.status);
+
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (data.success) {
+                    document.getElementById('result').innerHTML = `
+                        <div class="result-success">
+                            <h2>🎉 Registration Successful!</h2>
+                            <p><strong>Student ID:</strong> ${data.student_id}</p>
+                            <p><strong>Face:</strong> ${data.has_face ? '✅ Registered' : '❌ Failed'}</p>
+                            <p><strong>Fingerprint:</strong> ${data.has_fingerprint ? '✅ Registered' : '⏳ Pending'}</p>
+                            <p><strong>File Path:</strong> ${data.face_path || 'N/A'}</p>
+                            ${!data.has_fingerprint ? 
+                                '<p style="color: orange;">⚠️ Don\'t forget to register fingerprint!</p>' : ''}
+                        </div>
+                    `;
+
+                    showStatus('✅ Registration successful!', 'success');
+
+                    // Reset after 3 seconds
+                    setTimeout(() => {
+                        if (confirm('Registration successful! Register another student?')) {
+                            window.location.reload();
+                        } else {
+                            window.location.href = 'students.html';
+                        }
+                    }, 3000);
+                } else {
+                    showStatus('❌ Registration failed: ' + (data.error || 'Unknown error'), 'error');
+                    
+                    document.getElementById('result').innerHTML = `
+                        <div class="result-error">
+                            <h3>❌ Registration Failed</h3>
+                            <p>${data.error || 'Unknown error occurred'}</p>
+                            <p>Please try again with a different image</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showStatus('❌ Network error: ' + error.message, 'error');
+                
+                document.getElementById('result').innerHTML = `
+                    <div class="result-error">
+                        <h3>❌ Connection Error</h3>
+                        <p>${error.message}</p>
+                        <p>Make sure the backend API is running on port 5000</p>
+                    </div>
+                `;
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                document.getElementById('video').srcObject = null;
+                showStatus('⏹️ Camera stopped', 'warning');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('captureStatus');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+            
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // Clean up on page close
+        window.addEventListener('beforeunload', () => {
+            stopCamera();
+        });
+    </script>
+</body>
+</html>

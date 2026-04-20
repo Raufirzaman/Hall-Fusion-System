@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fingerprint Registration - Hall Fusion System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="fusion.html">Dashboard</a> > Fingerprint Registration
+        </nav>
+
+        <header class="header">
+            <h1>👆 Fingerprint Registration</h1>
+            <p>Register fingerprint for students (requires scanner)</p>
+        </header>
+
+        <!-- Scanner Status -->
+        <div class="scanner-status-section">
+            <h2>🔌 Scanner Status</h2>
+            <div class="status-box" id="scannerStatus">
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="spinner"></span>
+                    <span>Checking for fingerprint scanner...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Selection -->
+        <div class="form-section">
+            <h2>1️⃣ Select Student</h2>
+            <div class="form-group">
+                <label for="studentSelect">Choose Student:</label>
+                <select id="studentSelect" class="form-control">
+                    <option value="">Loading students...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="studentId">Or Enter Student ID:</label>
+                <input type="text" id="studentId" class="form-control" 
+                       placeholder="e.g., 0812220205101001">
+            </div>
+            <div id="studentInfo" class="info-box"></div>
+        </div>
+
+        <!-- Fingerprint Capture Options -->
+        <div class="capture-section">
+            <h2>2️⃣ Capture Fingerprint</h2>
+
+            <!-- Option 1: Hardware Scanner -->
+            <div class="capture-option">
+                <h3>Option A: Hardware Scanner</h3>
+                <div class="scanner-guide">
+                    <div class="scanner-visual">
+                        <div class="fingerprint-icon">👆</div>
+                        <p>Place finger on scanner</p>
+                    </div>
+                    <div class="scanner-instructions">
+                        <h4>Instructions:</h4>
+                        <ol>
+                            <li>Clean your right index finger</li>
+                            <li>Place finger flat on scanner</li>
+                            <li>Press gently but firmly</li>
+                            <li>Keep finger still for 3-5 seconds</li>
+                            <li>Wait for confirmation beep</li>
+                        </ol>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="captureFromScanner()" 
+                        id="scannerBtn" disabled>
+                    🔍 Scan Fingerprint
+                </button>
+            </div>
+
+            <!-- Option 2: Upload Image -->
+            <div class="capture-option">
+                <h3>Option B: Upload Fingerprint Image</h3>
+                <p class="help-text">
+                    If scanner is not available, you can upload a previously scanned image
+                </p>
+                <input type="file" id="fingerprintUpload" accept="image/*" 
+                       onchange="handleFingerprintUpload(event)">
+                <label for="fingerprintUpload" class="btn btn-secondary">
+                    📂 Choose File
+                </label>
+            </div>
+
+            <div id="captureStatus" class="status-message"></div>
+        </div>
+
+        <!-- Preview and Register -->
+        <div class="preview-section">
+            <h2>3️⃣ Review and Register</h2>
+            <div class="preview-box">
+                <h3>Captured Fingerprint:</h3>
+                <div id="fingerprintPreview" class="preview-area">
+                    <span class="placeholder-text">No fingerprint captured yet</span>
+                </div>
+            </div>
+
+            <button class="btn btn-large btn-success" onclick="registerFingerprint()" 
+                    disabled id="registerBtn">
+                ✅ Register Fingerprint
+            </button>
+
+            <div id="result" class="result-message"></div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        let fingerprintImageData = null;
+        let selectedStudentId = null;
+        let scannerAvailable = false;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await checkScanner();
+            await loadStudents();
+        });
+
+        async function checkScanner() {
+            // Simulate scanner check
+            // In production, check for actual hardware
+            const statusDiv = document.getElementById('statusIndicator');
+            
+            // Simulate delay
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // For demo, mark as not available
+            scannerAvailable = false;
+            
+            if (scannerAvailable) {
+                statusDiv.innerHTML = `
+                    <span style="color: green;">✅ Scanner Connected</span>
+                    <p>Device: Generic Fingerprint Scanner</p>
+                `;
+                document.getElementById('scannerBtn').disabled = false;
+            } else {
+                statusDiv.innerHTML = `
+                    <span style="color: orange;">⚠️ Scanner Not Detected</span>
+                    <p>Please connect fingerprint scanner or use upload option</p>
+                `;
+            }
+        }
+
+        async function loadStudents() {
+            try {
+                const response = await fetch(`${API_URL}/api/students`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const select = document.getElementById('studentSelect');
+                    select.innerHTML = '<option value="">-- Select Student --</option>';
+
+                    data.students.forEach(student => {
+                        const option = document.createElement('option');
+                        option.value = student.id;
+                        option.textContent = `${student.id} - ${student.name} (Room: ${student.room})`;
+                        select.appendChild(option);
+                    });
+
+                    select.addEventListener('change', (e) => {
+                        document.getElementById('studentId').value = e.target.value;
+                        loadStudentInfo(e.target.value);
+                    });
+                }
+            } catch (error) {
+                showStatus('Error loading students: ' + error.message, 'error');
+            }
+        }
+
+        async function loadStudentInfo(studentId) {
+            if (!studentId) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/students/${studentId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const student = data.student;
+                    selectedStudentId = studentId;
+
+                    document.getElementById('studentInfo').innerHTML = `
+                        <div class="info-box-success">
+                            <h4>✅ Student Found</h4>
+                            <p><strong>Name:</strong> ${student.name}</p>
+                            <p><strong>ID:</strong> ${student.id}</p>
+                            <p><strong>Room:</strong> ${student.room}</p>
+                            <p><strong>Biometrics:</strong> 
+                                ${student.has_biometrics ? '✅ Already Registered' : '❌ Not Registered'}
+                            </p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                showStatus('Error loading student info: ' + error.message, 'error');
+            }
+        }
+
+        document.getElementById('studentId').addEventListener('change', (e) => {
+            loadStudentInfo(e.target.value);
+        });
+
+        async function captureFromScanner() {
+            const studentId = selectedStudentId || document.getElementById('studentId').value;
+
+            if (!studentId) {
+                showStatus('❌ Please select or enter Student ID first', 'error');
+                return;
+            }
+
+            showStatus('🔍 Scanning... Place finger on scanner...', 'loading');
+
+            // Simulate scanner capture (3 seconds)
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            // For demo, use a placeholder image
+            // In production, get actual scan data
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = 400;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw fingerprint pattern
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, 400, 400);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            
+            for (let i = 0; i < 15; i++) {
+                ctx.beginPath();
+                ctx.arc(200, 150 + (i * 15), 100 + (i * 10), 0, Math.PI);
+                ctx.stroke();
+            }
+
+            fingerprintImageData = canvas.toDataURL('image/jpeg', 0.95);
+
+            document.getElementById('fingerprintPreview').innerHTML = `
+                <img src="${fingerprintImageData}" alt="Captured Fingerprint">
+            `;
+
+            document.getElementById('registerBtn').disabled = false;
+
+            showStatus('✅ Fingerprint captured successfully!', 'success');
+        }
+
+        function handleFingerprintUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fingerprintImageData = e.target.result;
+                
+                document.getElementById('fingerprintPreview').innerHTML = `
+                    <img src="${fingerprintImageData}" alt="Uploaded Fingerprint">
+                `;
+
+                document.getElementById('registerBtn').disabled = false;
+                showStatus('✅ Fingerprint image uploaded', 'success');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function registerFingerprint() {
+            const studentId = selectedStudentId || document.getElementById('studentId').value;
+
+            if (!studentId) {
+                showStatus('❌ Please select or enter Student ID', 'error');
+                return;
+            }
+
+            if (!fingerprintImageData) {
+                showStatus('❌ Please capture or upload a fingerprint', 'error');
+                return;
+            }
+
+            showStatus('⏳ Registering... Please wait...', 'loading');
+
+            try {
+                const fingerprintBase64 = fingerprintImageData.split(',')[1];
+
+                const response = await fetch(`${API_URL}/api/update`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        student_id: studentId,
+                        face_image: null,  // Keep existing face
+                        fingerprint_image: fingerprintBase64
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('result').innerHTML = `
+                        <div class="result-success">
+                            <h2>🎉 Registration Successful!</h2>
+                            <p>Student ID: ${studentId}</p>
+                            <p>Fingerprint has been registered</p>
+                            <p>Biometric profile is now complete</p>
+                        </div>
+                    `;
+
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                } else {
+                    showStatus('❌ Registration failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Error: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('captureStatus');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+        }
+    </script>
+</body>
+</html>

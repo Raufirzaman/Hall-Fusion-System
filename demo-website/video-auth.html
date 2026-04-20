@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Authentication - Hall Fusion System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="fusion.html">Dashboard</a> > Video Authentication
+        </nav>
+
+        <header class="header">
+            <h1>🎥 Video-Based Authentication</h1>
+            <p>Authenticate students from recorded video</p>
+        </header>
+
+        <!-- Upload Video Section -->
+        <div class="upload-section">
+            <h2>1️⃣ Upload Video File</h2>
+            
+            <div class="upload-box">
+                <div class="upload-icon">🎬</div>
+                <p class="upload-text">Click to upload or drag and drop video file</p>
+                <p class="upload-hint">Supported formats: MP4, AVI, MOV (Max 100MB)</p>
+                <input type="file" id="videoUpload" accept="video/*" 
+                       onchange="handleVideoUpload(event)">
+                <label for="videoUpload" class="btn btn-primary btn-large">
+                    📂 Choose Video File
+                </label>
+            </div>
+
+            <div id="uploadStatus" class="status-message"></div>
+        </div>
+
+        <!-- Video Preview Section -->
+        <div id="previewSection" class="preview-section" style="display: none;">
+            <h2>2️⃣ Video Preview</h2>
+            
+            <div class="video-preview-container">
+                <video id="videoPreview" controls></video>
+            </div>
+
+            <div class="video-info" id="videoInfo"></div>
+
+            <div class="processing-options">
+                <h3>Processing Options</h3>
+                <div class="option-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="optionMultipleFaces" checked>
+                        <span>Detect multiple students</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="optionTimestamps" checked>
+                        <span>Include timestamps</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="optionConfidence" checked>
+                        <span>Show confidence scores</span>
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label for="frameInterval">Frame Sampling Interval (seconds):</label>
+                    <input type="number" id="frameInterval" class="form-control" 
+                           value="1" min="0.5" max="10" step="0.5">
+                    <small class="help-text">Process every N seconds (lower = more accurate but slower)</small>
+                </div>
+            </div>
+
+            <button class="btn btn-large btn-success" onclick="processVideo()">
+                🚀 Process Video
+            </button>
+        </div>
+
+        <!-- Processing Section -->
+        <div id="processingSection" class="processing-section" style="display: none;">
+            <h2>⏳ Processing Video...</h2>
+            
+            <div class="progress-container">
+                <div class="progress-bar-large">
+                    <div class="progress-fill-animated" id="progressBar"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
+
+            <div class="processing-info">
+                <p id="processingInfo">Initializing...</p>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="results-section" style="display: none;">
+            <h2>✅ Authentication Results</h2>
+
+            <div class="results-summary" id="resultsSummary"></div>
+
+            <div class="results-grid" id="resultsGrid"></div>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="downloadResults()">
+                    💾 Download Report (JSON)
+                </button>
+                <button class="btn btn-secondary" onclick="location.reload()">
+                    🔄 Process Another Video
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        let videoFile = null;
+        let videoUrl = null;
+        let processingResults = [];
+
+        function handleVideoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            videoFile = file;
+
+            // Check file size (100MB limit)
+            if (file.size > 100 * 1024 * 1024) {
+                showUploadStatus('❌ File too large. Maximum size is 100MB', 'error');
+                return;
+            }
+
+            // Create video URL
+            if (videoUrl) {
+                URL.revokeObjectURL(videoUrl);
+            }
+            videoUrl = URL.createObjectURL(file);
+
+            // Show preview
+            const videoPreview = document.getElementById('videoPreview');
+            videoPreview.src = videoUrl;
+
+            // Get video metadata
+            videoPreview.onloadedmetadata = function() {
+                const duration = Math.floor(videoPreview.duration);
+                const minutes = Math.floor(duration / 60);
+                const seconds = duration % 60;
+
+                document.getElementById('videoInfo').innerHTML = `
+                    <div class="info-box-success">
+                        <h4>📹 Video Information</h4>
+                        <p><strong>Filename:</strong> ${file.name}</p>
+                        <p><strong>Size:</strong> ${(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+                        <p><strong>Duration:</strong> ${minutes}:${seconds.toString().padStart(2, '0')}</p>
+                        <p><strong>Resolution:</strong> ${videoPreview.videoWidth} × ${videoPreview.videoHeight}</p>
+                    </div>
+                `;
+            };
+
+            document.getElementById('previewSection').style.display = 'block';
+            showUploadStatus('✅ Video uploaded successfully', 'success');
+        }
+
+        function showUploadStatus(message, type) {
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+        }
+
+        async function processVideo() {
+            if (!videoFile) {
+                alert('Please upload a video file first');
+                return;
+            }
+
+            // Show processing section
+            document.getElementById('processingSection').style.display = 'block';
+            document.getElementById('processingSection').scrollIntoView({ behavior: 'smooth' });
+
+            // Get processing options
+            const detectMultiple = document.getElementById('optionMultipleFaces').checked;
+            const includeTimestamps = document.getElementById('optionTimestamps').checked;
+            const showConfidence = document.getElementById('optionConfidence').checked;
+            const frameInterval = parseFloat(document.getElementById('frameInterval').value);
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append('video', videoFile);
+
+            try {
+                updateProgress(10, 'Uploading video to server...');
+
+                const response = await fetch(`${API_URL}/api/video/authenticate`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                updateProgress(100, 'Processing complete!');
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    throw new Error(data.error || 'Processing failed');
+                }
+
+            } catch (error) {
+                document.getElementById('processingInfo').innerHTML = `
+                    <div class="error-message">
+                        ❌ Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function updateProgress(percent, message) {
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressText').textContent = percent + '%';
+            document.getElementById('processingInfo').textContent = message;
+        }
+
+        function displayResults(data) {
+            processingResults = data.detections || [];
+
+            // Hide processing, show results
+            document.getElementById('processingSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+
+            // Summary
+            const uniqueStudents = [...new Set(processingResults.map(d => d.student_id))];
+            
+            document.getElementById('resultsSummary').innerHTML = `
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-number">${processingResults.length}</div>
+                        <div class="summary-label">Total Detections</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number">${uniqueStudents.length}</div>
+                        <div class="summary-label">Unique Students</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number">${data.duration || 'N/A'}</div>
+                        <div class="summary-label">Video Duration</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number">${data.frames_processed || processingResults.length}</div>
+                        <div class="summary-label">Frames Processed</div>
+                    </div>
+                </div>
+            `;
+
+            // Results grid
+            const resultsGrid = document.getElementById('resultsGrid');
+            resultsGrid.innerHTML = '';
+
+            if (processingResults.length === 0) {
+                resultsGrid.innerHTML = '<p class="no-results">No students detected in video</p>';
+                return;
+            }
+
+            processingResults.forEach((detection, index) => {
+                const card = document.createElement('div');
+                card.className = 'detection-card';
+                
+                const confidencePercent = (detection.confidence * 100).toFixed(1);
+                const confidenceClass = detection.confidence > 0.8 ? 'high' : 
+                                       detection.confidence > 0.6 ? 'medium' : 'low';
+
+                card.innerHTML = `
+                    <div class="detection-header">
+                        <span class="detection-number">#${index + 1}</span>
+                        <span class="detection-time">${formatTimestamp(detection.timestamp)}</span>
+                    </div>
+                    <div class="detection-body">
+                        <h3>${detection.student_name}</h3>
+                        <p class="student-id">ID: ${detection.student_id}</p>
+                        <p class="student-room">Room: ${detection.room}</p>
+                        <div class="confidence-indicator confidence-${confidenceClass}">
+                            <span class="confidence-label">Confidence:</span>
+                            <span class="confidence-value">${confidencePercent}%</span>
+                        </div>
+                        ${detection.face_match ? '<span class="badge badge-success">✅ Face</span>' : ''}
+                        ${detection.fingerprint_match ? '<span class="badge badge-success">✅ Fingerprint</span>' : ''}
+                    </div>
+                `;
+
+                resultsGrid.appendChild(card);
+            });
+        }
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'N/A';
+            
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+
+        function downloadResults() {
+            const dataStr = JSON.stringify(processingResults, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `video_auth_results_${new Date().getTime()}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+        }
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (videoUrl) {
+                URL.revokeObjectURL(videoUrl);
+            }
+        });
+    </script>
+</body>
+</html>

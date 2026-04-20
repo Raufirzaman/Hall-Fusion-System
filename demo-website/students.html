@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Students List - Hall Fusion System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="fusion.html">Dashboard</a> > Students List
+        </nav>
+
+        <header class="header">
+            <h1>👥 Students Database</h1>
+            <p>View and manage student records</p>
+        </header>
+
+        <!-- Search and Filter -->
+        <div class="search-section">
+            <div class="search-bar">
+                <input type="text" class="search-input-large" id="searchBox" 
+                       placeholder="Search by ID, Name, Room..." 
+                       oninput="filterStudents()">
+                <button class="btn btn-primary" onclick="filterStudents()">
+                    🔍 Search
+                </button>
+            </div>
+
+            <div class="filter-options">
+                <select class="form-control" id="departmentFilter" title="Filter by department" onchange="filterStudents()">
+                    <option value="">All Departments</option>
+                    <option value="CSE">Computer Science</option>
+                    <option value="EEE">Electrical Engineering</option>
+                    <option value="ME">Mechanical Engineering</option>
+                    <option value="CE">Civil Engineering</option>
+                </select>
+
+                <select class="form-control" id="biometricFilter" title="Filter by biometric status" onchange="filterStudents()">
+                    <option value="">All Students</option>
+                    <option value="registered">Registered Biometrics</option>
+                    <option value="unregistered">Pending Registration</option>
+                </select>
+
+                <button class="btn btn-secondary" onclick="exportStudents()">
+                    📥 Export CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats-row">
+            <div class="stat-box">
+                <span class="stat-number" id="totalStudents">-</span>
+                <span class="stat-text">Total Students</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-number" id="registeredCount">-</span>
+                <span class="stat-text">Registered</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-number" id="pendingCount">-</span>
+                <span class="stat-text">Pending</span>
+            </div>
+        </div>
+
+        <!-- Students Grid -->
+        <div class="students-grid" id="studentsGrid">
+            <div class="loading-message">Loading students...</div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        let allStudents = [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStudents();
+        });
+
+        async function loadStudents() {
+            try {
+                const response = await fetch(`${API_URL}/api/students`);
+                const data = await response.json();
+
+                if (data.success) {
+                    allStudents = data.students;
+                    updateStats();
+                    displayStudents(allStudents);
+                } else {
+                    showError('studentsGrid', 'Failed to load students');
+                }
+            } catch (error) {
+                showError('studentsGrid', 'Error: ' + error.message);
+            }
+        }
+
+        function updateStats() {
+            const total = allStudents.length;
+            const registered = allStudents.filter(s => s.has_biometrics).length;
+            const pending = total - registered;
+
+            document.getElementById('totalStudents').textContent = total;
+            document.getElementById('registeredCount').textContent = registered;
+            document.getElementById('pendingCount').textContent = pending;
+        }
+
+        function displayStudents(students) {
+            const grid = document.getElementById('studentsGrid');
+
+            if (students.length === 0) {
+                grid.innerHTML = '<p class="no-data">No students found</p>';
+                return;
+            }
+
+            grid.innerHTML = students.map(student => `
+                <div class="student-card ${student.has_biometrics ? 'registered' : 'pending'}">
+                    <div class="student-header">
+                        <div class="student-avatar">
+                            ${student.has_biometrics ? '✅' : '⏳'}
+                        </div>
+                        <div class="student-status">
+                            ${student.has_biometrics ? 
+                                '<span class="badge badge-success">Registered</span>' : 
+                                '<span class="badge badge-warning">Pending</span>'}
+                        </div>
+                    </div>
+                    <div class="student-body">
+                        <h3>${student.name}</h3>
+                        <p class="student-id">ID: ${student.id}</p>
+                        <p class="student-room">🏠 Room: ${student.room}</p>
+                        <p class="student-dept">📚 ${student.department || 'N/A'}</p>
+                        
+                        <div class="biometric-indicators">
+                            ${student.has_face ? 
+                                '<span class="bio-badge bio-success">👤 Face</span>' : 
+                                '<span class="bio-badge bio-pending">👤 Face</span>'}
+                            ${student.has_fingerprint ? 
+                                '<span class="bio-badge bio-success">👆 Fingerprint</span>' : 
+                                '<span class="bio-badge bio-pending">👆 Fingerprint</span>'}
+                        </div>
+                    </div>
+                    <div class="student-actions">
+                        <button class="btn-action" onclick="viewStudent('${student.id}')" title="View Details">
+                            👁️ View
+                        </button>
+                        ${!student.has_biometrics ? `
+                            <button class="btn-action" onclick="registerBiometrics('${student.id}')" 
+                                    title="Register Biometrics">
+                                📝 Register
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterStudents() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            const deptFilter = document.getElementById('departmentFilter').value;
+            const bioFilter = document.getElementById('biometricFilter').value;
+
+            let filtered = allStudents;
+
+            // Search filter
+            if (searchTerm) {
+                filtered = filtered.filter(s => 
+                    s.id.toLowerCase().includes(searchTerm) ||
+                    s.name.toLowerCase().includes(searchTerm) ||
+                    s.room.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            // Department filter
+            if (deptFilter) {
+                filtered = filtered.filter(s => s.department === deptFilter);
+            }
+
+            // Biometric filter
+            if (bioFilter === 'registered') {
+                filtered = filtered.filter(s => s.has_biometrics);
+            } else if (bioFilter === 'unregistered') {
+                filtered = filtered.filter(s => !s.has_biometrics);
+            }
+
+            displayStudents(filtered);
+        }
+
+        async function viewStudent(studentId) {
+            try {
+                const response = await fetch(`${API_URL}/api/students/${studentId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    showStudentModal(data.student);
+                }
+            } catch (error) {
+                alert('Error loading student details: ' + error.message);
+            }
+        }
+
+        function showStudentModal(student) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="modal-close" onclick="this.parentElement.parentElement.remove()">×</span>
+                    <h2>Student Details</h2>
+                    <div class="student-details">
+                        <p><strong>Name:</strong> ${student.name}</p>
+                        <p><strong>ID:</strong> ${student.id}</p>
+                        <p><strong>Room:</strong> ${student.room}</p>
+                        <p><strong>Department:</strong> ${student.department || 'N/A'}</p>
+                        <p><strong>Biometric Status:</strong> 
+                            ${student.has_biometrics ? '✅ Registered' : '❌ Not Registered'}
+                        </p>
+                        <p><strong>Face Image:</strong> 
+                            ${student.has_face ? '✅ Available' : '❌ Not Available'}
+                        </p>
+                        <p><strong>Fingerprint:</strong> 
+                            ${student.has_fingerprint ? '✅ Available' : '❌ Not Available'}
+                        </p>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-primary" onclick="this.closest('.modal').remove()">
+                            Close
+                        </button>
+                        ${!student.has_biometrics ? `
+                            <button class="btn btn-success" onclick="registerBiometrics('${student.id}')">
+                                📝 Register Biometrics
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function registerBiometrics(studentId) {
+            if (confirm('Redirect to biometric registration page?')) {
+                window.location.href = `register-face.html?student=${studentId}`;
+            }
+        }
+
+        function exportStudents() {
+            const csv = convertStudentsToCSV(allStudents);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `students_${new Date().getTime()}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function convertStudentsToCSV(students) {
+            const headers = ['ID', 'Name', 'Room', 'Department', 'Biometric Status', 'Face', 'Fingerprint'];
+            const rows = students.map(s => [
+                s.id,
+                s.name,
+                s.room,
+                s.department || 'N/A',
+                s.has_biometrics ? 'Registered' : 'Pending',
+                s.has_face ? 'Yes' : 'No',
+                s.has_fingerprint ? 'Yes' : 'No'
+            ]);
+
+            return [
+                headers.join(','),
+                ...rows.map(row => row.join(','))
+            ].join('\n');
+        }
+
+        function showError(elementId, message) {
+            document.getElementById(elementId).innerHTML = `
+                <div class="error-message">${message}</div>
+            `;
+        }
+    </script>
+</body>
+</html>

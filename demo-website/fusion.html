@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hall Fusion System - Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🏛️ Hall Fusion System</h1>
+            <p>Biometric Authentication & Monitoring Dashboard</p>
+        </header>
+
+        <!-- Dashboard Stats -->
+        <section class="dashboard-stats">
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-info">
+                    <h3 id="totalStudents">0</h3>
+                    <p>Total Students</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-info">
+                    <h3 id="registeredStudents">0</h3>
+                    <p>Registered Biometrics</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-info">
+                    <h3 id="pendingBiometrics">0</h3>
+                    <p>Pending Biometrics</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-info">
+                    <h3 id="todayActivity">0</h3>
+                    <p>Today's Activity</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="quick-actions">
+            <h2>⚡ Quick Actions</h2>
+            <div class="action-grid">
+                <a href="register-face.html" class="action-card">
+                    <div class="action-icon">📸</div>
+                    <h3>Register Face</h3>
+                    <p>Capture and register student face biometrics</p>
+                </a>
+
+                <a href="register-fingerprint.html" class="action-card">
+                    <div class="action-icon">👆</div>
+                    <h3>Register Fingerprint</h3>
+                    <p>Scan and register student fingerprints</p>
+                </a>
+
+                <a href="authenticate.html" class="action-card">
+                    <div class="action-icon">🔐</div>
+                    <h3>Authenticate</h3>
+                    <p>Verify student identity using biometrics</p>
+                </a>
+
+                <a href="authenticate-realtime.html" class="action-card">
+                    <div class="action-icon">🎥</div>
+                    <h3>Real-Time Authentication</h3>
+                    <p>Continuous automatic face recognition</p>
+                </a>
+
+                <a href="students.html" class="action-card">
+                    <div class="action-icon">👥</div>
+                    <h3>View Students</h3>
+                    <p>Manage student records and biometrics</p>
+                </a>
+            </div>
+        </section>
+
+        <!-- Recent Activity -->
+        <section class="recent-activity">
+            <h2>📋 Recent Activity</h2>
+            <div class="activity-list" id="activityList">
+                <p style="color: #999;">Loading activity...</p>
+            </div>
+        </section>
+
+        <!-- System Status -->
+        <section class="system-status">
+            <h2>🖥️ System Status</h2>
+            <div class="status-grid">
+                <div class="status-card">
+                    <h3>API Status:</h3>
+                    <p id="apiStatusText" class="status-offline">❌ Offline</p>
+                </div>
+                
+                <div class="status-card">
+                    <h3>Total Students:</h3>
+                    <p id="totalStudentsStatus">-</p>
+                </div>
+                
+                <div class="status-card">
+                    <h3>Registered Biometrics:</h3>
+                    <p id="registeredBiometricsStatus">-</p>
+                </div>
+                
+                <div class="status-card">
+                    <h3>Last Activity:</h3>
+                    <p id="lastActivityStatus">-</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Continuous Monitoring -->
+        <section class="monitoring-section">
+            <h2>📹 Continuous Monitoring</h2>
+            <div class="monitoring-grid">
+                <a href="monitoring.html" class="monitoring-card">
+                    <div class="monitoring-icon">📹</div>
+                    <h3>Start Monitoring</h3>
+                    <p>Setup surveillance cameras for disciplinary monitoring</p>
+                </a>
+
+                <a href="monitoring-dashboard.html" class="monitoring-card">
+                    <div class="monitoring-icon">📊</div>
+                    <h3>View Monitoring Data</h3>
+                    <p>Review recorded monitoring events and violations</p>
+                </a>
+            </div>
+        </section>
+
+        <!-- Data Management -->
+        <section class="data-management">
+            <h2>📋 Data Management</h2>
+            <div class="management-grid">
+                <a href="students.html" class="management-card">
+                    <div class="management-icon">👥</div>
+                    <h3>View All Students</h3>
+                    <p>Browse complete student database</p>
+                </a>
+
+                <a href="authentication-logs.html" class="management-card">
+                    <div class="management-icon">📝</div>
+                    <h3>Authentication Logs</h3>
+                    <p>View authentication history and access records</p>
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        // Load dashboard stats
+        async function loadDashboardStats() {
+            try {
+                const data = await safeFetch(`${API_URL}/api/stats`);
+                
+                if (data.success && data.stats) {
+                    // Update stat cards
+                    document.getElementById('totalStudents').textContent = data.stats.total_students;
+                    document.getElementById('registeredStudents').textContent = data.stats.registered_students;
+                    document.getElementById('pendingBiometrics').textContent = data.stats.pending_students;
+                    document.getElementById('todayActivity').textContent = data.stats.today_activity;
+                    
+                    // Update system status
+                    document.getElementById('totalStudentsStatus').textContent = data.stats.total_students;
+                    document.getElementById('registeredBiometricsStatus').textContent = data.stats.registered_students;
+                } else {
+                    console.warn('Failed to load stats:', data.error);
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Load recent activity
+        async function loadRecentActivity() {
+            try {
+                const data = await safeFetch(`${API_URL}/api/activity?limit=5`);
+                
+                const activityList = document.getElementById('activityList');
+                
+                if (data.success && data.activity && data.activity.length > 0) {
+                    activityList.innerHTML = data.activity.map(item => `
+                        <div class="activity-item">
+                            <div class="activity-icon ${item.success ? 'success' : 'warning'}">
+                                ${item.success ? '✓' : '⚠'}
+                            </div>
+                            <div class="activity-details">
+                                <strong>${item.student_name || 'Unknown'} (${item.student_id || 'N/A'})</strong>
+                                <p>${item.action || 'Authentication'} via ${item.method || 'face'}</p>
+                                <small>${item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Unknown time'}</small>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    activityList.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No recent activity</p>';
+                }
+            } catch (error) {
+                console.error('Error loading activity:', error);
+                document.getElementById('activityList').innerHTML = 
+                    '<p style="color: #999; text-align: center; padding: 20px;">Unable to load activity</p>';
+            }
+        }
+
+        // Update API status display
+        function updateAPIStatus(isOnline) {
+            const statusText = document.getElementById('apiStatusText');
+            const lastActivity = document.getElementById('lastActivityStatus');
+            
+            if (isOnline) {
+                statusText.textContent = '✅ Online';
+                statusText.className = 'status-online';
+                lastActivity.textContent = new Date().toLocaleTimeString();
+            } else {
+                statusText.textContent = '❌ Offline';
+                statusText.className = 'status-offline';
+                lastActivity.textContent = 'API not responding';
+            }
+        }
+
+        // Initialize dashboard
+        async function initDashboard() {
+            console.log('🚀 Initializing dashboard...');
+            
+            // Check API status first
+            const isOnline = await checkAPIStatus();
+            updateAPIStatus(isOnline);
+            
+            if (isOnline) {
+                // Load dashboard data
+                await loadDashboardStats();
+                await loadRecentActivity();
+                console.log('✅ Dashboard loaded successfully');
+            } else {
+                console.warn('⚠️ API is offline, showing limited data');
+            }
+        }
+
+        // Load on page ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initDashboard);
+        } else {
+            initDashboard();
+        }
+
+        // Refresh data every 30 seconds
+        setInterval(async () => {
+            const isOnline = await checkAPIStatus();
+            updateAPIStatus(isOnline);
+            
+            if (isOnline) {
+                await loadDashboardStats();
+                await loadRecentActivity();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

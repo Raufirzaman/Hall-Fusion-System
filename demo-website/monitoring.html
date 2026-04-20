@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous Monitoring - Hall Fusion System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="fusion.html">Dashboard</a> > Continuous Monitoring
+        </nav>
+
+        <header class="header">
+            <h1>📹 Continuous Monitoring Setup</h1>
+            <p>Set up surveillance cameras for disciplinary monitoring</p>
+        </header>
+
+        <!-- Camera Configuration -->
+        <div class="config-section">
+            <h2>1️⃣ Camera Configuration</h2>
+
+            <div class="camera-grid">
+                <!-- Camera 1 -->
+                <div class="camera-card">
+                    <h3>📹 Camera 1</h3>
+                    <div class="form-group">
+                        <label>Camera Source:</label>
+                        <select class="form-control" id="camera1Source" onchange="handleSourceChange(1)" title="Select Camera 1 Source">
+                            <option value="0">Built-in Camera</option>
+                            <option value="1">USB Camera 1</option>
+                            <option value="2">USB Camera 2</option>
+                            <option value="android">📱 Android Phone (IP Webcam)</option>
+                            <option value="rtsp">RTSP Stream</option>
+                            <option value="http">HTTP Stream</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Android IP Input -->
+                    <div class="form-group" id="camera1AndroidGroup" style="display: none;">
+                        <label>Android Phone IP Address:</label>
+                        <input type="text" class="form-control" id="camera1Android"
+                               placeholder="192.168.1.100:8080">
+                        <small class="help-text">
+                            📱 Get from IP Webcam app<br>
+                            Make sure phone & PC on same WiFi
+                        </small>
+                    </div>
+                    
+                    <!-- RTSP/HTTP URL Input -->
+                    <div class="form-group" id="camera1URLGroup" style="display: none;">
+                        <label>Stream URL:</label>
+                        <input type="text" class="form-control" id="camera1URL"
+                               placeholder="rtsp://192.168.1.100:554/stream">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Location:</label>
+                        <input type="text" class="form-control" id="camera1Location"
+                               placeholder="e.g., Hall Corridor 2A">
+                    </div>
+                    <button class="btn btn-secondary btn-small" onclick="testCamera(1)">
+                        🔍 Test Camera
+                    </button>
+                </div>
+
+                <!-- Camera 2 -->
+                <div class="camera-card">
+                    <h3>📹 Camera 2</h3>
+                    <div class="form-group">
+                        <label>Camera Source:</label>
+                        <select class="form-control" id="camera2Source" onchange="handleSourceChange(2)" title="Select Camera 2 Source">
+                            <option value="">Not Active</option>
+                            <option value="0">Built-in Camera</option>
+                            <option value="1">USB Camera 1</option>
+                            <option value="2">USB Camera 2</option>
+                            <option value="android">📱 Android Phone (IP Webcam)</option>
+                            <option value="rtsp">RTSP Stream</option>
+                            <option value="http">HTTP Stream</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="camera2AndroidGroup" style="display: none;">
+                        <label>Android Phone IP Address:</label>
+                        <input type="text" class="form-control" id="camera2Android"
+                               placeholder="192.168.1.101:8080">
+                        <small class="help-text">Different phone/port than Camera 1</small>
+                    </div>
+                    
+                    <div class="form-group" id="camera2URLGroup" style="display: none;">
+                        <label>Stream URL:</label>
+                        <input type="text" class="form-control" id="camera2URL"
+                               placeholder="rtsp://192.168.1.101:554/stream">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Location:</label>
+                        <input type="text" class="form-control" id="camera2Location"
+                               placeholder="e.g., Hall Entrance">
+                    </div>
+                    <button class="btn btn-secondary btn-small" onclick="testCamera(2)">
+                        🔍 Test Camera
+                    </button>
+                </div>
+
+                <!-- Camera 3 -->
+                <div class="camera-card">
+                    <h3>📹 Camera 3</h3>
+                    <div class="form-group">
+                        <label>Camera Source:</label>
+                        <select class="form-control" id="camera3Source" onchange="handleSourceChange(3)" title="Select Camera 3 Source">
+                            <option value="">Not Active</option>
+                            <option value="0">Built-in Camera</option>
+                            <option value="1">USB Camera 1</option>
+                            <option value="2">USB Camera 2</option>
+                            <option value="android">📱 Android Phone (IP Webcam)</option>
+                            <option value="rtsp">RTSP Stream</option>
+                            <option value="http">HTTP Stream</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="camera3AndroidGroup" style="display: none;">
+                        <label>Android Phone IP Address:</label>
+                        <input type="text" class="form-control" id="camera3Android"
+                               placeholder="192.168.1.102:8080">
+                        <small class="help-text">Different phone/port than others</small>
+                    </div>
+                    
+                    <div class="form-group" id="camera3URLGroup" style="display: none;">
+                        <label>Stream URL:</label>
+                        <input type="text" class="form-control" id="camera3URL"
+                               placeholder="rtsp://192.168.1.102:554/stream">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Location:</label>
+                        <input type="text" class="form-control" id="camera3Location"
+                               placeholder="e.g., Common Room">
+                    </div>
+                    <button class="btn btn-secondary btn-small" onclick="testCamera(3)">
+                        🔍 Test Camera
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Android Setup Instructions -->
+        <div class="instructions-section">
+            <div class="info-box info-android">
+                <h3>📱 How to Setup Android Phone as Camera</h3>
+                <ol>
+                    <li><strong>Install IP Webcam:</strong> Download "IP Webcam" from Google Play Store</li>
+                    <li><strong>Connect to WiFi:</strong> Ensure phone & PC are on the <strong>same WiFi network</strong></li>
+                    <li><strong>Start Server:</strong> Open app → Scroll down → Click "Start server"</li>
+                    <li><strong>Note IP Address:</strong> App shows URL like <code>http://192.168.1.100:8080</code></li>
+                    <li><strong>Enter in Form:</strong> Copy just the IP part: <code>192.168.1.100:8080</code></li>
+                    <li><strong>Test Connection:</strong> Click "Test Camera" button</li>
+                </ol>
+                <p><strong>💡 Tips:</strong></p>
+                <ul>
+                    <li>Keep phone plugged in to avoid battery drain</li>
+                    <li>Use phone stand/tripod for stable positioning</li>
+                    <li>Adjust video quality in app settings if needed</li>
+                    <li>You can use multiple phones as different cameras</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Monitoring Settings -->
+        <div class="settings-section">
+            <h2>2️⃣ Monitoring Settings</h2>
+
+            <div class="settings-grid">
+                <div class="setting-card">
+                    <h3>⏱️ Duration</h3>
+                    <div class="form-group">
+                        <label>Monitoring Duration (minutes):</label>
+                        <input type="number" class="form-control" id="monitoringDuration"
+                               value="60" min="1" max="1440"
+                               title="Enter the monitoring duration in minutes"
+                               placeholder="e.g., 60">
+                        <small class="help-text">Max: 24 hours (1440 minutes)</small>
+                    </div>
+                </div>
+
+                <div class="setting-card">
+                    <h3>🎯 Detection Settings</h3>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="detectMultiple" checked>
+                        <span>Detect multiple people</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="saveFrames" checked>
+                        <span>Save detection frames</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="realTimeAlerts">
+                        <span>Real-time alerts</span>
+                    </label>
+                </div>
+
+                <div class="setting-card">
+                    <h3>🚨 Alert Conditions</h3>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="alertUnregistered">
+                        <span>Alert on unregistered person</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="alertMultiple">
+                        <span>Alert on multiple people</span>
+                    </label>
+                    <div class="form-group">
+                        <label>Confidence Threshold:</label>
+                        <input type="range" id="confidenceThreshold" 
+                               min="50" max="95" value="70" step="5"
+                               oninput="updateThresholdLabel(this.value)"
+                               title="Adjust the confidence threshold for detection">
+                        <span id="thresholdLabel">70%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera Preview -->
+        <div class="preview-section">
+            <h2>3️⃣ Camera Preview</h2>
+            <div class="preview-grid" id="cameraPreviewGrid">
+                <div class="camera-preview" id="previewContainer1">
+                    <video id="preview1" autoplay playsinline></video>
+                    <div class="preview-label">Camera 1 - Not Active</div>
+                </div>
+                <div class="camera-preview" id="previewContainer2">
+                    <video id="preview2" autoplay playsinline></video>
+                    <div class="preview-label">Camera 2 - Not Active</div>
+                </div>
+                <div class="camera-preview" id="previewContainer3">
+                    <video id="preview3" autoplay playsinline></video>
+                    <div class="preview-label">Camera 3 - Not Active</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Start Monitoring -->
+        <div class="action-section">
+            <button class="btn btn-large btn-success" onclick="startMonitoring()">
+                🚀 Start Monitoring
+            </button>
+            <button class="btn btn-large btn-danger" onclick="stopMonitoring()" disabled id="stopBtn">
+                ⏹️ Stop Monitoring
+            </button>
+        </div>
+
+        <!-- Active Monitoring Display -->
+        <div id="activeMonitoring" class="active-monitoring" style="display: none;">
+            <h2>📡 Active Monitoring</h2>
+            
+            <div class="monitoring-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="statDuration">00:00:00</div>
+                    <div class="stat-label">Running Time</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statDetections">0</div>
+                    <div class="stat-label">Total Detections</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statStudents">0</div>
+                    <div class="stat-label">Unique Students</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statAlerts">0</div>
+                    <div class="stat-label">Alerts Generated</div>
+                </div>
+            </div>
+
+            <div class="live-feed">
+                <h3>Live Detections</h3>
+                <div id="liveDetections" class="live-detections-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        let monitoringActive = false;
+        let monitoringStartTime = null;
+        let detectionCount = 0;
+        let uniqueStudents = new Set();
+        let alertCount = 0;
+        let durationInterval = null;
+        let cameraStreams = {};
+        let androidFeedIntervals = {};
+
+        // Handle camera source selection
+        function handleSourceChange(cameraNum) {
+            const source = document.getElementById(`camera${cameraNum}Source`).value;
+            const androidGroup = document.getElementById(`camera${cameraNum}AndroidGroup`);
+            const urlGroup = document.getElementById(`camera${cameraNum}URLGroup`);
+            
+            // Hide all groups first
+            if (androidGroup) androidGroup.style.display = 'none';
+            if (urlGroup) urlGroup.style.display = 'none';
+            
+            // Show relevant group
+            if (source === 'android') {
+                androidGroup.style.display = 'block';
+            } else if (source === 'rtsp' || source === 'http') {
+                urlGroup.style.display = 'block';
+            }
+
+            // Clear any existing preview
+            stopCameraPreview(cameraNum);
+        }
+
+        function updateThresholdLabel(value) {
+            document.getElementById('thresholdLabel').textContent = value + '%';
+        }
+
+        // Test camera connection
+        async function testCamera(cameraNum) {
+            const source = document.getElementById(`camera${cameraNum}Source`).value;
+
+            if (!source) {
+                alert('⚠️ Please select a camera source first');
+                return;
+            }
+
+            // Stop any existing preview
+            stopCameraPreview(cameraNum);
+
+            if (source === 'android') {
+                await testAndroidCamera(cameraNum);
+            } else if (source === 'rtsp' || source === 'http') {
+                await testStreamCamera(cameraNum);
+            } else {
+                await testLocalCamera(cameraNum, parseInt(source));
+            }
+        }
+
+        // Test Android phone camera
+        async function testAndroidCamera(cameraNum) {
+            const androidIP = document.getElementById(`camera${cameraNum}Android`).value;
+            
+            if (!androidIP) {
+                alert('⚠️ Please enter Android phone IP address');
+                return;
+            }
+
+            showMessage(cameraNum, '🔍 Testing Android camera connection...', 'info');
+
+            try {
+                // Test connection with a single frame
+                const testUrl = `http://${androidIP}/shot.jpg?${Date.now()}`;
+                
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    mode: 'no-cors' // Try without CORS first
+                });
+
+                // Since we can't read the response with no-cors, 
+                // we'll assume success if no error was thrown
+                // Better approach: try to load image
+                
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = () => {
+                    showMessage(cameraNum, '✅ Android camera connected successfully!', 'success');
+                    startAndroidPreview(cameraNum, androidIP);
+                };
+
+                img.onerror = () => {
+                    throw new Error('Cannot load image from Android camera');
+                };
+
+                img.src = testUrl;
+
+            } catch (error) {
+                showMessage(cameraNum, 
+                    `❌ Connection failed: ${error.message}\n\n` +
+                    `Troubleshooting:\n` +
+                    `• Check IP address is correct\n` +
+                    `• Ensure IP Webcam app is running\n` +
+                    `• Verify phone and PC on same WiFi\n` +
+                    `• Try disabling firewall temporarily`, 
+                    'error');
+            }
+        }
+
+        // Start Android camera preview
+        function startAndroidPreview(cameraNum, androidIP) {
+            const container = document.getElementById(`previewContainer${cameraNum}`);
+            const preview = document.getElementById(`preview${cameraNum}`);
+            
+            // Create image element for MJPEG stream
+            const img = document.createElement('img');
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'cover';
+            img.crossOrigin = 'anonymous';
+            
+            // Hide video element, show image
+            preview.style.display = 'none';
+            container.querySelector('.preview-label').textContent = 
+                `Camera ${cameraNum} - Android (${androidIP})`;
+            
+            // Remove old image if exists
+            const oldImg = container.querySelector('img');
+            if (oldImg) oldImg.remove();
+            
+            container.insertBefore(img, container.firstChild);
+            
+            // Update image continuously (MJPEG-like behavior)
+            let frameCount = 0;
+            androidFeedIntervals[cameraNum] = setInterval(() => {
+                img.src = `http://${androidIP}/shot.jpg?t=${Date.now()}`;
+                frameCount++;
+            }, 100); // 10 FPS
+
+            // Store stream info
+            cameraStreams[cameraNum] = {
+                type: 'android',
+                ip: androidIP,
+                element: img
+            };
+        }
+
+        // Test RTSP/HTTP stream
+        async function testStreamCamera(cameraNum) {
+            const streamUrl = document.getElementById(`camera${cameraNum}URL`).value;
+            
+            if (!streamUrl) {
+                alert('⚠️ Please enter stream URL');
+                return;
+            }
+
+            showMessage(cameraNum, 
+                `⚠️ RTSP/HTTP streams require backend proxy\n` +
+                `URL: ${streamUrl}\n` +
+                `Backend will handle this stream when monitoring starts`, 
+                'warning');
+        }
+
+        // Test local camera
+        async function testLocalCamera(cameraNum, deviceId) {
+            showMessage(cameraNum, '🔍 Accessing local camera...', 'info');
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        deviceId: deviceId ? { exact: deviceId } : undefined,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+
+                const preview = document.getElementById(`preview${cameraNum}`);
+                preview.style.display = 'block';
+                preview.srcObject = stream;
+                
+                const container = document.getElementById(`previewContainer${cameraNum}`);
+                container.querySelector('.preview-label').textContent = 
+                    `Camera ${cameraNum} - Local Camera`;
+
+                cameraStreams[cameraNum] = {
+                    type: 'local',
+                    stream: stream,
+                    element: preview
+                };
+
+                showMessage(cameraNum, '✅ Local camera active!', 'success');
+
+            } catch (error) {
+                showMessage(cameraNum, `❌ Camera error: ${error.message}`, 'error');
+            }
+        }
+
+        // Stop camera preview
+        function stopCameraPreview(cameraNum) {
+            // Stop Android feed
+            if (androidFeedIntervals[cameraNum]) {
+                clearInterval(androidFeedIntervals[cameraNum]);
+                delete androidFeedIntervals[cameraNum];
+            }
+
+            // Stop local stream
+            if (cameraStreams[cameraNum]) {
+                if (cameraStreams[cameraNum].type === 'local' && cameraStreams[cameraNum].stream) {
+                    cameraStreams[cameraNum].stream.getTracks().forEach(track => track.stop());
+                }
+                delete cameraStreams[cameraNum];
+            }
+
+            // Reset preview
+            const container = document.getElementById(`previewContainer${cameraNum}`);
+            const preview = document.getElementById(`preview${cameraNum}`);
+            const oldImg = container.querySelector('img');
+            
+            if (oldImg) oldImg.remove();
+            preview.style.display = 'block';
+            preview.srcObject = null;
+            container.querySelector('.preview-label').textContent = 
+                `Camera ${cameraNum} - Not Active`;
+        }
+
+        // Show status message
+        function showMessage(cameraNum, message, type) {
+            // Create or update status div
+            let statusDiv = document.querySelector(`.camera-card:nth-child(${cameraNum}) .camera-status`);
+            
+            if (!statusDiv) {
+                statusDiv = document.createElement('div');
+                statusDiv.className = 'camera-status';
+                const card = document.querySelectorAll('.camera-card')[cameraNum - 1];
+                card.appendChild(statusDiv);
+            }
+
+            statusDiv.className = `camera-status status-${type}`;
+            statusDiv.style.marginTop = '15px';
+            statusDiv.style.padding = '15px';
+            statusDiv.style.borderRadius = '8px';
+            statusDiv.style.whiteSpace = 'pre-line';
+            
+            if (type === 'error') {
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.style.border = '1px solid #f5c6cb';
+            } else if (type === 'success') {
+                statusDiv.style.background = '#d4edda';
+                statusDiv.style.color = '#155724';
+                statusDiv.style.border = '1px solid #c3e6cb';
+            } else if (type === 'warning') {
+                statusDiv.style.background = '#fff3cd';
+                statusDiv.style.color = '#856404';
+                statusDiv.style.border = '1px solid #ffeeba';
+            } else {
+                statusDiv.style.background = '#d1ecf1';
+                statusDiv.style.color = '#0c5460';
+                statusDiv.style.border = '1px solid #bee5eb';
+            }
+
+            statusDiv.textContent = message;
+
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    if (statusDiv.parentElement) {
+                        statusDiv.remove();
+                    }
+                }, 5000);
+            }
+        }
+
+        // Start monitoring
+        async function startMonitoring() {
+            // Gather configuration
+            const config = {
+                cameras: [],
+                duration: parseInt(document.getElementById('monitoringDuration').value),
+                settings: {
+                    detect_multiple: document.getElementById('detectMultiple').checked,
+                    save_frames: document.getElementById('saveFrames').checked,
+                    real_time_alerts: document.getElementById('realTimeAlerts').checked,
+                    alert_unregistered: document.getElementById('alertUnregistered').checked,
+                    alert_multiple: document.getElementById('alertMultiple').checked,
+                    confidence_threshold: parseFloat(document.getElementById('confidenceThreshold').value) / 100
+                }
+            };
+
+            // Add active cameras
+            for (let i = 1; i <= 3; i++) {
+                const source = document.getElementById(`camera${i}Source`).value;
+                if (!source) continue;
+
+                let videoSource;
+                let sourceType;
+
+                if (source === 'android') {
+                    const androidIP = document.getElementById(`camera${i}Android`).value;
+                    if (!androidIP) {
+                        alert(`⚠️ Please enter IP address for Camera ${i}`);
+                        return;
+                    }
+                    videoSource = `http://${androidIP}/video`; // MJPEG stream
+                    sourceType = 'android';
+                } else if (source === 'rtsp' || source === 'http') {
+                    videoSource = document.getElementById(`camera${i}URL`).value;
+                    if (!videoSource) {
+                        alert(`⚠️ Please enter stream URL for Camera ${i}`);
+                        return;
+                    }
+                    sourceType = source;
+                } else {
+                    videoSource = parseInt(source);
+                    sourceType = 'local';
+                }
+
+                config.cameras.push({
+                    id: i,
+                    source: videoSource,
+                    source_type: sourceType,
+                    location: document.getElementById(`camera${i}Location`).value || `Camera ${i}`
+                });
+            }
+
+            if (config.cameras.length === 0) {
+                alert('⚠️ Please configure at least one camera');
+                return;
+            }
+
+            try {
+                // Start monitoring for each camera
+                for (const camera of config.cameras) {
+                    const response = await fetch(`${API_URL}/api/monitor/start`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            video_source: camera.source,
+                            source_type: camera.source_type,
+                            duration: config.duration * 60,
+                            location: camera.location,
+                            settings: config.settings
+                        })
+                    });
+
+                    const data = await response.json();
+                    console.log(`Camera ${camera.id} monitoring started:`, data);
+
+                    if (!data.success) {
+                        throw new Error(`Camera ${camera.id}: ${data.error}`);
+                    }
+                }
+
+                monitoringActive = true;
+                monitoringStartTime = new Date();
+
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('activeMonitoring').style.display = 'block';
+                document.getElementById('activeMonitoring').scrollIntoView({ behavior: 'smooth' });
+
+                // Start updating stats
+                startStatsUpdate();
+
+                alert('✅ Monitoring started successfully!\n\nView live detections below.');
+
+            } catch (error) {
+                alert('❌ Error starting monitoring:\n' + error.message);
+            }
+        }
+
+        function startStatsUpdate() {
+            // Update duration counter
+            durationInterval = setInterval(() => {
+                if (!monitoringActive) {
+                    clearInterval(durationInterval);
+                    return;
+                }
+
+                const elapsed = Math.floor((new Date() - monitoringStartTime) / 1000);
+                const hours = Math.floor(elapsed / 3600);
+                const minutes = Math.floor((elapsed % 3600) / 60);
+                const seconds = elapsed % 60;
+
+                document.getElementById('statDuration').textContent = 
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            }, 1000);
+
+            // Poll for new detections
+            pollDetections();
+        }
+
+        async function pollDetections() {
+            if (!monitoringActive) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/monitor/events?limit=10`);
+                const data = await response.json();
+
+                if (data.success && data.events.length > 0) {
+                    // Update stats
+                    detectionCount = data.count || data.events.length;
+                    document.getElementById('statDetections').textContent = detectionCount;
+
+                    data.events.forEach(event => {
+                        if (event.student_id) {
+                            uniqueStudents.add(event.student_id);
+                        }
+                    });
+                    document.getElementById('statStudents').textContent = uniqueStudents.size;
+
+                    // Add to live feed
+                    updateLiveFeed(data.events.slice(0, 5));
+                }
+
+            } catch (error) {
+                console.error('Error polling detections:', error);
+            }
+
+            // Poll again in 3 seconds
+            setTimeout(pollDetections, 3000);
+        }
+
+        function updateLiveFeed(events) {
+            const feed = document.getElementById('liveDetections');
+            
+            // Keep existing items, prepend new ones
+            const existingItems = feed.querySelectorAll('.live-detection-item');
+            
+            events.reverse().forEach(event => {
+                // Check if already displayed
+                const exists = Array.from(existingItems).some(item => 
+                    item.dataset.eventId === event.event_id
+                );
+                
+                if (!exists) {
+                    const item = document.createElement('div');
+                    item.className = 'live-detection-item';
+                    item.dataset.eventId = event.event_id;
+                    item.innerHTML = `
+                        <div class="detection-time">${formatTime(event.timestamp)}</div>
+                        <div class="detection-info">
+                            <strong>${event.student_id || 'Unknown'}</strong> 
+                            ${event.student_name ? `(${event.student_name})` : ''} 
+                            detected at ${event.location}
+                            <span class="confidence-badge">${(event.confidence * 100).toFixed(0)}%</span>
+                        </div>
+                    `;
+                    feed.insertBefore(item, feed.firstChild);
+                }
+            });
+
+            // Keep only last 20 items
+            while (feed.children.length > 20) {
+                feed.removeChild(feed.lastChild);
+            }
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString();
+        }
+
+        function stopMonitoring() {
+            if (!confirm('⚠️ Are you sure you want to stop monitoring?')) {
+                return;
+            }
+
+            monitoringActive = false;
+            document.getElementById('stopBtn').disabled = true;
+            clearInterval(durationInterval);
+
+            // Stop all camera streams
+            for (let i = 1; i <= 3; i++) {
+                stopCameraPreview(i);
+            }
+
+            alert('✅ Monitoring stopped.\n\nView complete results in Monitoring Dashboard.');
+        }
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            for (let i = 1; i <= 3; i++) {
+                stopCameraPreview(i);
+            }
+        });
+    </script>
+</body>
+</html>

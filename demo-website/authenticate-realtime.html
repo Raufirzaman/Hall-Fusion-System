@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Authentication - Hall Fusion System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .video-container {
+            position: relative;
+            max-width: 800px;
+            margin: 20px auto;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .status-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-width: 300px;
+        }
+
+        .status-overlay.authenticated {
+            background: rgba(40, 167, 69, 0.9);
+        }
+
+        .status-overlay.processing {
+            background: rgba(255, 193, 7, 0.9);
+        }
+
+        .status-overlay.unauthorized {
+            background: rgba(220, 53, 69, 0.9);
+        }
+
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(240, 147, 251, 0.4);
+        }
+
+        .authentication-log {
+            max-width: 800px;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
+        }
+
+        .log-entry.success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+
+        .log-entry.failed {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+
+        .settings {
+            max-width: 800px;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .setting-item {
+            margin: 15px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .setting-item label {
+            font-weight: 600;
+        }
+
+        .setting-item input[type="range"] {
+            width: 200px;
+        }
+
+        .fps-counter {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🎥 Real-Time Face Authentication</h1>
+            <p>Automatic continuous face recognition</p>
+            <a href="fusion.html" class="btn-back">← Back to Dashboard</a>
+        </header>
+
+        <!-- Settings -->
+        <section class="settings">
+            <h3>⚙️ Settings</h3>
+            <div class="setting-item">
+                <label>Recognition Interval (ms):</label>
+                <div>
+                    <input type="range" id="intervalSlider" min="500" max="3000" value="1000" step="100" title="Adjust the recognition interval in milliseconds">
+                    <span id="intervalValue">1000ms</span>
+                </div>
+            </div>
+            <div class="setting-item">
+                <label>Confidence Threshold:</label>
+                <div>
+                    <input type="range" id="thresholdSlider" min="0.1" max="0.9" value="0.35" step="0.05" title="Adjust the confidence threshold">
+                    <span id="thresholdValue">0.35</span>
+                </div>
+            </div>
+            <div class="setting-item">
+                <label>Draw Face Boxes:</label>
+                <input type="checkbox" id="drawBoxes" checked title="Toggle drawing face boxes">
+            </div>
+            <div class="setting-item">
+                <label>Show Confidence:</label>
+                <input type="checkbox" id="showConfidence" checked title="Toggle showing confidence percentage">
+            </div>
+        </section>
+
+        <!-- Video Feed -->
+        <div class="video-container">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="overlay" class="overlay-canvas"></canvas>
+            
+            <div id="statusOverlay" class="status-overlay">
+                <div>🔍 Status: <span id="statusText">Starting...</span></div>
+                <div id="studentInfo" style="margin-top: 10px; display: none;">
+                    <strong id="studentName"></strong><br>
+                    <span id="studentId"></span><br>
+                    <span id="confidenceText"></span>
+                </div>
+            </div>
+
+            <div class="fps-counter">
+                <div>FPS: <span id="fps">0</span></div>
+                <div>Processed: <span id="frameCount">0</span></div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button id="startBtn" class="btn btn-primary">▶️ Start Camera</button>
+            <button id="stopBtn" class="btn btn-danger" disabled>⏹️ Stop Camera</button>
+        </div>
+
+        <!-- Authentication Log -->
+        <section class="authentication-log">
+            <h3>📋 Authentication Log</h3>
+            <div id="logContainer">
+                <p style="color: #999; text-align: center;">No activity yet...</p>
+            </div>
+        </section>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+       
+        
+        let video = document.getElementById('video');
+        let overlay = document.getElementById('overlay');
+        let ctx = overlay.getContext('2d');
+        let stream = null;
+        let recognitionInterval = null;
+        let isProcessing = false;
+        let frameCount = 0;
+        let lastFrameTime = Date.now();
+        let fps = 0;
+
+        // Settings
+        let recognitionIntervalMs = 1000;
+        let confidenceThreshold = 0.35;
+        let drawBoxes = true;
+        let showConfidence = true;
+
+        // Update settings
+        document.getElementById('intervalSlider').addEventListener('input', (e) => {
+            recognitionIntervalMs = parseInt(e.target.value);
+            document.getElementById('intervalValue').textContent = recognitionIntervalMs + 'ms';
+            
+            if (recognitionInterval) {
+                clearInterval(recognitionInterval);
+                startRecognition();
+            }
+        });
+
+        document.getElementById('thresholdSlider').addEventListener('input', (e) => {
+            confidenceThreshold = parseFloat(e.target.value);
+            document.getElementById('thresholdValue').textContent = confidenceThreshold;
+        });
+
+        document.getElementById('drawBoxes').addEventListener('change', (e) => {
+            drawBoxes = e.target.checked;
+        });
+
+        document.getElementById('showConfidence').addEventListener('change', (e) => {
+            showConfidence = e.target.checked;
+        });
+
+        // Start camera
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: 1280, 
+                        height: 720,
+                        facingMode: 'user'
+                    } 
+                });
+                
+                video.srcObject = stream;
+                
+                video.addEventListener('loadedmetadata', () => {
+                    overlay.width = video.videoWidth;
+                    overlay.height = video.videoHeight;
+                });
+
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                
+                updateStatus('Ready', 'processing');
+                
+                // Start recognition
+                startRecognition();
+                
+                // Start FPS counter
+                setInterval(updateFPS, 1000);
+
+            } catch (error) {
+                console.error('Camera error:', error);
+                alert('❌ Cannot access camera: ' + error.message);
+            }
+        });
+
+        // Stop camera
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            stopCamera();
+        });
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            if (recognitionInterval) {
+                clearInterval(recognitionInterval);
+                recognitionInterval = null;
+            }
+            
+            video.srcObject = null;
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            updateStatus('Stopped', 'unauthorized');
+            hideStudentInfo();
+        }
+
+        function startRecognition() {
+            recognitionInterval = setInterval(async () => {
+                if (!isProcessing && video.readyState === video.HAVE_ENOUGH_DATA) {
+                    await processFrame();
+                }
+            }, recognitionIntervalMs);
+        }
+
+        async function processFrame() {
+            isProcessing = true;
+            frameCount++;
+
+            try {
+                // Capture frame
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const tempCtx = canvas.getContext('2d');
+                tempCtx.drawImage(video, 0, 0);
+                
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+                // Send to API
+                updateStatus('Processing...', 'processing');
+
+                const response = await fetch(`${API_URL}/api/authenticate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        face_image: imageData,
+                        fingerprint_image: null
+                    })
+                });
+
+                const data = await response.json();
+
+                // Clear overlay
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+                if (data.authenticated && data.confidence >= confidenceThreshold) {
+                    // Authenticated
+                    updateStatus('✅ Authenticated', 'authenticated');
+                    showStudentInfo(data);
+                    logAuthentication(data, true);
+
+                    // Draw green box (if face detection coordinates available)
+                    if (drawBoxes) {
+                        drawFaceBox('green', data.student_name, data.confidence);
+                    }
+
+                } else {
+                    // Not authenticated
+                    updateStatus('❌ Unknown Person', 'unauthorized');
+                    hideStudentInfo();
+                    
+                    if (data.student_id) {
+                        logAuthentication(data, false);
+                    }
+
+                    // Draw red box
+                    if (drawBoxes) {
+                        drawFaceBox('red', 'Unknown', data.confidence || 0);
+                    }
+                }
+
+            } catch (error) {
+                console.error('Recognition error:', error);
+                updateStatus('❌ Error', 'unauthorized');
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        function drawFaceBox(color, label, confidence) {
+            // Draw a box in the center (since we don't have face coordinates from API)
+            const boxWidth = overlay.width * 0.4;
+            const boxHeight = overlay.height * 0.6;
+            const x = (overlay.width - boxWidth) / 2;
+            const y = (overlay.height - boxHeight) / 2;
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 4;
+            ctx.strokeRect(x, y, boxWidth, boxHeight);
+
+            // Draw label
+            ctx.fillStyle = color;
+            ctx.font = 'bold 20px Arial';
+            const text = showConfidence ? `${label} (${(confidence * 100).toFixed(1)}%)` : label;
+            const textWidth = ctx.measureText(text).width;
+            
+            ctx.fillRect(x, y - 30, textWidth + 20, 30);
+            ctx.fillStyle = 'white';
+            ctx.fillText(text, x + 10, y - 8);
+        }
+
+        function updateStatus(text, type) {
+            document.getElementById('statusText').textContent = text;
+            const overlay = document.getElementById('statusOverlay');
+            overlay.className = 'status-overlay ' + type;
+        }
+
+        function showStudentInfo(data) {
+            document.getElementById('studentInfo').style.display = 'block';
+            document.getElementById('studentName').textContent = data.student_name;
+            document.getElementById('studentId').textContent = `ID: ${data.student_id}`;
+            document.getElementById('confidenceText').textContent = 
+                `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+        }
+
+        function hideStudentInfo() {
+            document.getElementById('studentInfo').style.display = 'none';
+        }
+
+        function logAuthentication(data, success) {
+            const logContainer = document.getElementById('logContainer');
+            
+            // Clear initial message
+            if (logContainer.querySelector('p')) {
+                logContainer.innerHTML = '';
+            }
+
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + (success ? 'success' : 'failed');
+            
+            const time = new Date().toLocaleTimeString();
+            const name = data.student_name || 'Unknown';
+            const id = data.student_id || 'N/A';
+            const confidence = ((data.confidence || 0) * 100).toFixed(1);
+            
+            entry.innerHTML = `
+                <strong>${success ? '✅' : '❌'} ${time}</strong><br>
+                ${name} (${id})<br>
+                Confidence: ${confidence}%
+            `;
+
+            logContainer.insertBefore(entry, logContainer.firstChild);
+
+            // Keep only last 20 entries
+            while (logContainer.children.length > 20) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        function updateFPS() {
+            const now = Date.now();
+            const elapsed = (now - lastFrameTime) / 1000;
+            fps = Math.round(frameCount / elapsed);
+            
+            document.getElementById('fps').textContent = fps;
+            document.getElementById('frameCount').textContent = frameCount;
+            
+            frameCount = 0;
+            lastFrameTime = now;
+        }
+
+        // Stop camera on page unload
+        window.addEventListener('beforeunload', () => {
+            stopCamera();
+        });
+    </script>
+</body>
+</html>
