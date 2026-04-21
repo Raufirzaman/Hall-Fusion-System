@@ -1,1 +1,1 @@
-"web: gunicorn api:app" 
+"web: gunicorn -w 2 --timeout 300 --access-logfile - --error-logfile - api:app" 
