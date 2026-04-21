@@ -10,16 +10,15 @@ firebase-admin==7.4.0
 google-cloud-firestore==2.26.0
 google-cloud-storage==3.10.1
 
-# ML & Computer Vision (Pre-built wheels - no compilation needed!)
-opencv-python-headless==4.8.1.78
+# ML & Computer Vision (ONLY pre-built wheels - NO source compilation!)
 numpy==1.26.4
-Pillow==10.1.0
-scikit-image==0.22.0
+opencv-python-headless==4.8.1.78
+Pillow==10.0.0
+scikit-image==0.21.0
 scikit-learn==1.3.2
 
 # Face Recognition
 insightface==0.7.3
-onnxruntime==1.17.3
 
 # Utilities
 requests==2.31.0
